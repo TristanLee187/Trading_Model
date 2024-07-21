@@ -163,3 +163,7 @@ cython_debug/
 
 # My market data
 data/market_data
+
+# Models and scalers
+training/*.keras
+training/*.npy

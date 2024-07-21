@@ -1,7 +1,6 @@
 # Produce a CSV file of market data for multiple tickers
 
 import yfinance as yf
-import pandas as pd
 import indicators as ind
 from datetime import date, timedelta
 
@@ -54,7 +53,7 @@ def build_dataset(ticker: str, start_date: date, end_date: date):
     data['Stochastic_Oscillator'] = ind.stochastic_oscillator(data['Close'], 14)
 
     # Filter out rows with null values and whose dates are before the requested start_date
-    data = data[~data.isna()]
+    data = data.dropna()
     data = data[data.index.date >= start_date]
 
     # Remove the "Date" index.
