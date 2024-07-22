@@ -162,8 +162,7 @@ cython_debug/
 #.idea/
 
 # My market data
-data/market_data
+market_data/
 
-# Models and scalers
-training/*.keras
-training/*.npy
+# Models
+models/
