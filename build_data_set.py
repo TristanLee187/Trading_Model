@@ -6,7 +6,7 @@ from datetime import date, timedelta
 
 def build_dataset(ticker: str, start_date: date, end_date: date):
     """
-    Build and export to CSV a single file containing daily market data of a ticker between 2 dates.
+    Build a DataFrame containing daily market data of a ticker between 2 dates.
 
     Args:
         ticker (str): Ticker of the company.
@@ -16,10 +16,7 @@ def build_dataset(ticker: str, start_date: date, end_date: date):
             If the market is not open this day, uses the last open day before this day instead.
     
     Returns:
-        None
-    
-    Side Effects:
-        Saves the corresponding CSV file to "./market_data/{ticker}.csv"
+        pandas.DataFrame: A DataFrame containing the ticker's market data for the given date range.
     """
 
     # Define the first day to fetch data from as 1 year before the start_date, so that 200 SMA/EMA
@@ -59,8 +56,9 @@ def build_dataset(ticker: str, start_date: date, end_date: date):
     # Remove the "Date" index.
     data.reset_index(drop=True, inplace=True)
 
-    # Export the data to a CSV file.
-    data.to_csv(f'./market_data/{ticker}.csv', index=False)
+    # Return the DataFrame
+    return data
+
 
 if __name__ == '__main__':
     # Define certain tickers
@@ -71,4 +69,7 @@ if __name__ == '__main__':
     e = date(2023, 12, 31)
 
     for ticker in tickers:
-        build_dataset(ticker, s, e)
+        data = build_dataset(ticker, s, e)
+        
+        # Export the data to a CSV file.
+        data.to_csv(f'./market_data/{ticker}.csv', index=False)
