@@ -9,10 +9,10 @@ def build_dataset(ticker: str, start_date: date, end_date: date):
     Build a DataFrame containing daily market data of a ticker between 2 dates.
 
     Args:
-        ticker (str): Ticker of the company.
-        start_date (datetime.datetime): First day of data to include in the file.
+        ticker (str): Ticker of the company, index, etc..
+        start_date (datetime.date): First day of data to include in the file.
             If the market is not open this day, uses the first open day after this day instead.
-        end_date (datetime.datetime): Last day of data to include in the file.
+        end_date (datetime.date): Last day of data to include in the file.
             If the market is not open this day, uses the last open day before this day instead.
     
     Returns:
@@ -62,7 +62,9 @@ def build_dataset(ticker: str, start_date: date, end_date: date):
 
 if __name__ == '__main__':
     # Define certain tickers
-    tickers = ['AAPL', 'MSFT', 'NVDA', 'AMZN', '^GSPC', '^DJI', '^RUT', 'CL=F', 'GC=F']
+    tickers = ['AAPL', 'MSFT', 'NVDA', 'AMZN',
+               '^GSPC', '^DJI', '^RUT', 
+               'CL=F', 'GC=F']
 
     # Start from 2000-01-01 and end on 2023-12-31 (leaving out 2024 for testing)
     s = date(2000, 1, 1)
@@ -70,6 +72,6 @@ if __name__ == '__main__':
 
     for ticker in tickers:
         data = build_dataset(ticker, s, e)
-        
+
         # Export the data to a CSV file.
         data.to_csv(f'./market_data/{ticker}.csv', index=False)

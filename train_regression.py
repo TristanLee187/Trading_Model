@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from keras.models import Sequential
-from keras.layers import LSTM, Dense, Input, Dropout, Activation
+from keras.layers import LSTM, Dense, Input, Dropout
 from keras.regularizers import l2
 from keras.callbacks import EarlyStopping
 
@@ -17,7 +17,7 @@ WINDOW_LENGTH = 30
 # Read each ticker's data
 tickers = ['AAPL', 'MSFT', 'NVDA', 'AMZN', '^GSPC', '^DJI', '^RUT', 'CL=F', 'GC=F']
 for ticker in tickers:
-    data = pd.read_csv(f'../data/market_data/{ticker}.csv')
+    data = pd.read_csv(f'./market_data/{ticker}.csv')
 
     # Read sequences of length WINDOW_LENGTH
     for i in range(len(data) - WINDOW_LENGTH):
@@ -32,7 +32,6 @@ for ticker in tickers:
         X.append(sequence.to_numpy())
         y.append(percent_change)
 
-# Prepare and normalize the data
 X = np.array(X)
 y = np.array(y)
 
@@ -47,7 +46,7 @@ model = Sequential([
     Dropout(rate=0.4, seed=42),
     LSTM(units=50),
     Dropout(rate=0.2, seed=42),
-    Dense(units=25, activation=Activation('sigmoid'), activity_regularizer=l2(1e-5)),
+    Dense(units=25, activation='sigmoid', activity_regularizer=l2(1e-5)),
     Dense(units=1)
 ])
 
