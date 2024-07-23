@@ -7,15 +7,12 @@ from keras.models import Sequential
 from keras.layers import LSTM, Dense, Input, Dropout
 from keras.regularizers import l2
 from keras.callbacks import EarlyStopping
+from common import WINDOW_LENGTH, tickers
 
 # Initialize the training data/labels
 X, y = [], []
 
-# Use a sequence of the previous 30 days' data as input
-WINDOW_LENGTH = 30
-
 # Read each ticker's data
-tickers = ['AAPL', 'MSFT', 'NVDA', 'AMZN', '^GSPC', '^DJI', '^RUT', 'CL=F', 'GC=F']
 for ticker in tickers:
     data = pd.read_csv(f'./market_data/{ticker}.csv')
 
@@ -42,11 +39,9 @@ X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.2, random_st
 NUM_FEATURES = X.shape[2]
 model = Sequential([
     Input(shape=(WINDOW_LENGTH, NUM_FEATURES)),
-    LSTM(units=50, return_sequences=True),
-    Dropout(rate=0.4, seed=42),
-    LSTM(units=50),
-    Dropout(rate=0.2, seed=42),
-    Dense(units=25, activation='sigmoid', activity_regularizer=l2(1e-5)),
+    LSTM(units=100, return_sequences=True),
+    LSTM(units=100),
+    Dense(units=25, activation='sigmoid'),
     Dense(units=1)
 ])
 

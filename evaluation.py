@@ -6,6 +6,7 @@ from keras.models import load_model
 from datetime import date, timedelta
 from build_data_set import build_dataset
 import matplotlib.pyplot as plt
+from common import WINDOW_LENGTH
 
 def regression_model_eval(model_name: str, ticker: str, start_date: date, end_date: date):
     """
@@ -27,10 +28,8 @@ def regression_model_eval(model_name: str, ticker: str, start_date: date, end_da
         Plots the ground truth daily returns vs. the model's predictions.
     """
 
-    window_length = 30
-
     # Fetch and transform the market data in question.
-    data = build_dataset(ticker, start_date - timedelta(days=2 * window_length), end_date)
+    data = build_dataset(ticker, start_date - timedelta(days=2 * WINDOW_LENGTH), end_date)
     
     # Create a date column for plotting.
     date_col = pd.to_datetime(data[['Year', 'Month', 'Day']]).dt.date
@@ -38,15 +37,15 @@ def regression_model_eval(model_name: str, ticker: str, start_date: date, end_da
     # Construct an array of inputs to the model, and record the grounth truths.
     X, y_gt = [], []
 
-    for i in range(len(data) - window_length):
+    for i in range(len(data) - WINDOW_LENGTH):
         # Make sure the date in question is in range.
-        if date_col[i+window_length] < start_date:
+        if date_col[i+WINDOW_LENGTH] < start_date:
             continue
 
-        sequence = data[i:i+window_length]
+        sequence = data[i:i+WINDOW_LENGTH]
 
-        last_close = sequence.iloc[window_length-1]['Close']
-        this_close = data.iloc[i+window_length]['Close']
+        last_close = sequence.iloc[WINDOW_LENGTH-1]['Close']
+        this_close = data.iloc[i+WINDOW_LENGTH]['Close']
         percent_change = (this_close - last_close) / last_close
 
         X.append(sequence.to_numpy())
@@ -58,6 +57,7 @@ def regression_model_eval(model_name: str, ticker: str, start_date: date, end_da
     # Use the model to make predictions.
     model = load_model(model_name)
     y_predictions = model.predict(X).reshape(len(y_gt))
+    print(y_predictions)
 
     # Calculate various metrics.
     # MAE
@@ -82,7 +82,7 @@ def regression_model_eval(model_name: str, ticker: str, start_date: date, end_da
     plt.legend()
     plt.xlabel("Date")
     plt.ylabel("Daily Return (%)")
-    plt.title(f"{ticker} {str(start_date)}-{str(end_date)} Ground Truth vs. Predicted Daily Returns")
+    plt.title(f"{ticker} Ground Truth vs. Predicted Daily Returns")
     plt.savefig(f"plots/regression_{ticker}_{str(start_date)}_{str(end_date)}.jpeg")
     plt.show()
 

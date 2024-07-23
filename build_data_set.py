@@ -3,6 +3,7 @@
 import yfinance as yf
 import indicators as ind
 from datetime import date, timedelta
+from common import tickers
 
 def build_dataset(ticker: str, start_date: date, end_date: date):
     """
@@ -61,11 +62,6 @@ def build_dataset(ticker: str, start_date: date, end_date: date):
 
 
 if __name__ == '__main__':
-    # Define certain tickers
-    tickers = ['AAPL', 'MSFT', 'NVDA', 'AMZN',
-               '^GSPC', '^DJI', '^RUT', 
-               'CL=F', 'GC=F']
-
     # Start from 2000-01-01 and end on 2023-12-31 (leaving out 2024 for testing)
     s = date(2000, 1, 1)
     e = date(2023, 12, 31)
