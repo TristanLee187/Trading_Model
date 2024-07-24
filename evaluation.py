@@ -2,11 +2,11 @@
 
 import numpy as np
 import pandas as pd
+from common import *
+from build_data_set import build_dataset
 from keras.models import load_model
 from datetime import date, timedelta
-from build_data_set import build_dataset
 import matplotlib.pyplot as plt
-from common import WINDOW_LENGTH
 
 def regression_model_eval(model_name: str, ticker: str, start_date: date, end_date: date):
     """
@@ -37,18 +37,20 @@ def regression_model_eval(model_name: str, ticker: str, start_date: date, end_da
     # Construct an array of inputs to the model, and record the grounth truths.
     X, y_gt = [], []
 
+    # Init standard scaler for normalizing input.
+    std_scaler = StandardScaler()
+
     for i in range(len(data) - WINDOW_LENGTH):
         # Make sure the date in question is in range.
         if date_col[i+WINDOW_LENGTH] < start_date:
             continue
 
-        sequence = data[i:i+WINDOW_LENGTH]
+        sequence = data[i:i+WINDOW_LENGTH].drop(columns=ignore_cols)
+        sequence_norm = normalize(sequence, std_scaler)
 
-        last_close = sequence.iloc[WINDOW_LENGTH-1]['Close']
-        this_close = data.iloc[i+WINDOW_LENGTH]['Close']
-        percent_change = (this_close - last_close) / last_close
+        percent_change = percent_change_label(data, i+WINDOW_LENGTH, 'Close')
 
-        X.append(sequence.to_numpy())
+        X.append(sequence_norm)
         y_gt.append(percent_change)
 
     X = np.array(X)
