@@ -162,7 +162,8 @@ cython_debug/
 #.idea/
 
 # My market data
-market_data/
+daily_market_data/
+minute_market_data/
 
 # Models
 models/
