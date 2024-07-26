@@ -4,7 +4,6 @@ import numpy as np
 import pandas as pd
 from common import *
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
 from keras.models import Sequential
 from keras.layers import LSTM, Dense, Input
 from keras.callbacks import EarlyStopping
@@ -31,8 +30,11 @@ def prepare_training_data(time_interval: str, norm: bool, label: str):
     # Init training instances and labels
     X, y = [], []
 
+    # Distinguish which directory to read from based on the time interval
+    dir_prefix = 'minute' if time_interval == '1m' else 'daily'
+
     for ticker in tickers:
-        data = pd.read_csv(f'./daily_market_data/{ticker}.csv')
+        data = pd.read_csv(f'./{dir_prefix}_market_data/{ticker}.csv')
         
         if time_interval == '1m':
             # Break down each file into its component days
@@ -85,13 +87,14 @@ if __name__ == '__main__':
         prog="Train a Model"
     )
     parser.add_argument('-m', '--model', type=str, help='model architecture to use',
-                        choices=['LSTM'])
+                        choices=['LSTM'], required=True)
     parser.add_argument('-t', '--time_interval', type=str, help='time interval data to train on',
-                        choices=['1m', '1d'])
+                        choices=['1m', '1d'], required=True)
     parser.add_argument('-l', '--label', type=str, help='labels to use for each instance',
-                        choices=['price', 'percent-change'])
-    parser.add_argument('-n', '--norm', type=bool, help='whether or not to normalize data where applicable',
-                        choices=['True', 'False'])
+                        choices=['price', 'percent-change'], required=True)
+    parser.add_argument('-n', '--norm', type=int, help='whether or not to normalize data where applicable',
+                        choices=[0, 1], required=True)
+    parser.add_argument('-e', '--error', type=str, help='error (loss) function to use', required=True)
     args = parser.parse_args()
 
     # Prepare training data
@@ -104,11 +107,13 @@ if __name__ == '__main__':
         model = get_lstm_model(X[0].shape)
 
         # Compile with early stopping
-        model.compile(optimizer='adam', loss='mae')
+        model.compile(optimizer='adam', loss=args.error)
         early_stopping = EarlyStopping(patience=5, restore_best_weights=True)
 
         # Train!
         model.fit(X_train, y_train, epochs=100, batch_size=32, validation_data=(X_val, y_val), callbacks=[early_stopping])
 
         # Save the model
-        model.save(f'./models/LSTM_{args.time_interval}_close-{args.label}_{"" if args.norm else "not-"}normed_model.keras')
+        model.save('./models/LSTM_{}_close-{}_{}normed_{}_model.keras'.format(
+            args.time_interval, args.label, "" if args.norm else "not-", args.error
+        ))

@@ -92,7 +92,7 @@ def prepare_model_data(data: pd.DataFrame, norm: bool, label: str, col: str):
     for i in range(len(data) - WINDOW_LENGTH):
         sequence = data[i:i+WINDOW_LENGTH].drop(columns=ignore_cols)
         sequence = transform(sequence)
-        gt_label = labeller(i)
+        gt_label = labeller(i+WINDOW_LENGTH)
         X.append(sequence)
         y.append(gt_label)
         
