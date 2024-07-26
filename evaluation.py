@@ -47,7 +47,7 @@ def lstm_model_eval(model_path: str, ticker: str, time_interval: str, label: str
         time_col = time_col[time_col >= start_date]
     else:
         data = build_minute_dataset(ticker, start_date)
-        time_col = pd.to_datetime(data['Minute'], unit='m').dt.time
+        time_col = data['Minute'][30:]
 
     # Transform the data into the sequence format the model wants
     X, y_gt = prepare_model_data(data, norm, label, 'Close')
@@ -59,16 +59,16 @@ def lstm_model_eval(model_path: str, ticker: str, time_interval: str, label: str
     # Calculate various metrics.
     # MAE
     mae = np.mean(np.abs(y_gt - y_predictions))
-    print(f"Mean Absolute Error (MAE): {round(mae, 4)}")
+    print(f"Mean Absolute Error (MAE): {round(mae, 10)}")
 
     # MSE
     mse = np.mean(np.power(y_gt - y_predictions, 2))
-    print(f"Mean Squared Error (MSE): {round(mse, 4)}")
+    print(f"Mean Squared Error (MSE): {round(mse, 10)}")
 
     # Percentage of days correctly classified as positive/negative returns.
     correct_incorrect = np.sign(y_gt * y_predictions)
     percent_correct = len([sign for sign in correct_incorrect if sign == 1]) / len(y_gt)
-    print(f"Percent Correctly Classified: {round(percent_correct, 4) * 100}%")
+    print(f"Percent Correctly Classified: {round(percent_correct, 10) * 100}%")
 
     # Plot the ground truth vs. predictions.
     fig = plt.figure(figsize=(10, 8))
@@ -77,12 +77,12 @@ def lstm_model_eval(model_path: str, ticker: str, time_interval: str, label: str
     plt.legend()
 
     x_mapper = {
-        '1d': "Date", '1m': "Time"
+        '1d': "Date", '1m': "Time (in minutes)"
     }
     plt.xlabel(x_mapper[time_interval])
 
     y_mapper = {
-        'price': "Price", 'percent-change': "Daily Return"
+        'price': "Price", 'percent-change': "Return (%)"
     }
     plt.ylabel(y_mapper[label])
 
@@ -92,7 +92,7 @@ def lstm_model_eval(model_path: str, ticker: str, time_interval: str, label: str
     if time_interval == '1d':
         date_string += '_' + str(end_date)
 
-    plot_name = './plots/v2/LSTM_{}_{}_{}_close-{}_{}normed.jpeg'.format(
+    plot_name = './plots/v1/LSTM_{}_{}_{}_close-{}_{}normed.jpeg'.format(
             ticker, time_interval, date_string, label, "" if norm else "not-", 
         )
 

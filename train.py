@@ -38,7 +38,7 @@ def prepare_training_data(time_interval: str, norm: bool, label: str):
         
         if time_interval == '1m':
             # Break down each file into its component days
-            daily_data = data.groupby()
+            daily_data = data.groupby(by=['Year', 'Month', 'Day'])
             days = daily_data.groups.keys()
             for day in days:
                 day_data = daily_data.get_group(day)
