@@ -1,4 +1,4 @@
-# Produce a CSV file of market data for multiple tickers
+# Produce a CSV file of market data for multiple tickers by fetching from Yahoo Finance
 
 import yfinance as yf
 import indicators as ind
@@ -122,10 +122,10 @@ def build_minute_dataset(ticker: str, day: date):
 if __name__ == '__main__':
     # Set up argparser
     parser = argparse.ArgumentParser(
-        prog="Build Dataset"
+        prog="Export Raw Data"
     )
-    parser.add_argument("-t", "--time_interval", type=str, help="time interval to generate data based on",
-                        choices=["1m", "1d"])
+    parser.add_argument('-t', '--time_interval', type=str, help='time interval data to train on',
+                        choices=['1m', '1d'])
     args = parser.parse_args()
 
     if args.time_interval == "1m":
