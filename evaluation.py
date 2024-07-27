@@ -47,7 +47,7 @@ def lstm_model_eval(model_path: str, ticker: str, time_interval: str, label: str
         time_col = time_col[time_col >= start_date]
     else:
         data = build_minute_dataset(ticker, start_date)
-        time_col = data['Minute'][30:]
+        time_col = data['Minute'][WINDOW_LENGTH:]
 
     # Transform the data into the sequence format the model wants
     X, y_gt = prepare_model_data(data, norm, label, 'Close')
