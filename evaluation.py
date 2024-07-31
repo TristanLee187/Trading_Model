@@ -66,7 +66,12 @@ def lstm_model_eval(model_path: str, ticker: str, time_interval: str, label: str
     print(f"Mean Squared Error (MSE): {round(mse, 10)}")
 
     # Percentage of days correctly classified as positive/negative returns.
-    correct_incorrect = np.sign(y_gt * y_predictions)
+    if label == 'percent-change':
+        correct_incorrect = np.sign(y_gt * y_predictions)
+    elif label == 'price':
+        close_column_index = data.columns.get_loc('Close')
+        correct_incorrect = np.sign((y_gt - X[:,-1,close_column_index]) * (y_predictions - X[:,-1,close_column_index]))
+
     percent_correct = len([sign for sign in correct_incorrect if sign == 1]) / len(y_gt)
     print(f"Percent Correctly Classified: {round(percent_correct, 10) * 100}%")
 

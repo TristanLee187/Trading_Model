@@ -111,7 +111,7 @@ if __name__ == '__main__':
         early_stopping = EarlyStopping(patience=5, restore_best_weights=True)
 
         # Train!
-        model.fit(X_train, y_train, epochs=100, batch_size=32, validation_data=(X_val, y_val), callbacks=[early_stopping])
+        model.fit(X_train, y_train, epochs=20, batch_size=32, validation_data=(X_val, y_val), callbacks=[early_stopping])
 
         # Save the model
         model.save('./models/LSTM_{}_close-{}_{}normed_{}_model.keras'.format(
