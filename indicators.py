@@ -2,6 +2,7 @@
 
 import pandas as pd
 
+
 def sma(series: pd.Series, size: int):
     """
     Computes the Simple Moving Average (SMA) for each applicable point in time.
@@ -14,6 +15,7 @@ def sma(series: pd.Series, size: int):
         pandas.Series: Series containing the SMA at each applicable point in time.
     """
     return series.rolling(size).sum() / size
+
 
 def cross(series: pd.Series, size1: int, size2: int):
     """
@@ -30,6 +32,7 @@ def cross(series: pd.Series, size1: int, size2: int):
     """
     return sma(series, size1) - sma(series, size2)
 
+
 def ema(series: pd.Series, size: int):
     """
     Computes the Exponential Moving Average (EMA) for each applicable point in time.
@@ -45,6 +48,7 @@ def ema(series: pd.Series, size: int):
     # Use 2 as the smoothing factor, or 2 / (size + 1) as alpha
     return series.ewm(alpha=2/(size+1), min_periods=size, adjust=False).mean()
 
+
 def macd(series: pd.Series, size1: int, size2: int):
     """
     Computes the Moving Average Convergence/Divergence (MACD), using the difference in 2 EMAs.
@@ -59,6 +63,7 @@ def macd(series: pd.Series, size1: int, size2: int):
             for each applicable point in time.
     """
     return ema(series, size1) - ema(series, size2)
+
 
 def stochastic_oscillator(series: pd.Series, size: int):
     """
