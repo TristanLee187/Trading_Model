@@ -11,3 +11,4 @@ First working model: regression
 - Finally, after forcing normalization, the model predicts prices somewhat well (not just staying at a constant, following the ups and downs). Need to investigate certain behavior of seeming offset by an amount.
 - It seems for stocks with lower absolute prices, the models performs worse. This is probably because of all values of all stocks are normalized according to the same min-max.
 - Even after using MAPE (mean absolute percent error) as the loss, the problem persits.
+- For the percent error, the expected result is very close to 0%.

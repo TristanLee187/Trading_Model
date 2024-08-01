@@ -92,9 +92,7 @@ def get_lstm_model(shape: tuple[int, int]):
     model = Sequential([
         Input(shape=(window_length, num_features)),
         LSTM(units=num_features**2, return_sequences=True),
-        Dropout(0.1),
         LSTM(units=100),
-        Dropout(0.1),
         Dense(units=1)
     ])
     return model
