@@ -2,9 +2,11 @@
 
 import numpy as np
 import pandas as pd
+from sklearn.preprocessing import MinMaxScaler
 
 # Tickers to use for building datasets and training.
-tickers = ['AAPL', 'MSFT', 'NVDA', 'AMZN', '^GSPC', '^DJI', '^RUT', 'CL=F', 'GC=F']
+tickers = ['AAPL', 'MSFT', 'NVDA', 'AMZN',
+           '^GSPC', '^DJI', '^RUT', 'CL=F', 'GC=F']
 
 # Number of time points to use in defining sequence data.
 WINDOW_LENGTH = 30
@@ -30,25 +32,27 @@ def percent_change_label(data: pd.DataFrame, i: int, col: str):
 
 
 # Columns from CSV files to keep out of the training data.
-ignore_cols = ['Year', 'Month', 'Day', 'Ticker']
+ignore_cols = ['Ticker']
 
 
-def prepare_model_data(data: pd.DataFrame, label: str, col: str):
+def prepare_model_data(data: pd.DataFrame, label: str, scaler: MinMaxScaler, col: str):
     """
     Prepare input instances and ground truth labels (X and y) given raw CSV data, using the defined
-        WINDOW_LENGTH as the sequence length.
+        WINDOW_LENGTH as the sequence length, and normalizing using the given scaler.
 
     Args:
         data (pandas.DataFrame): Pandas DataFrame containing the raw CSV data.
         label (str): String indicating what value to use as the labels:
             "price": Use the price of the given column.
             "percent-change": Use the percent change in values of the given column.
+        scaler (MinMaxScaler): Scaler to use in normalization.
         col (str): Column name to use in creating the labels.
 
     Returns:
         numpy.array, numpy.array: Two numpy arrays X and y containing the training instances and ground
             truth labels, respectively. X will have shape (len(data) - WINDOW_LENGTH, WINDOW_LENGTH, NUM_FEATURES),
-            while y will have shape (len(data) - WINDOW_LENGTH).
+            while y will have shape (len(data) - WINDOW_LENGTH). The training instances are normalized, while
+            the labels are not.
     """
     # Define the label function based on the label
     if label == 'price':
@@ -61,13 +65,13 @@ def prepare_model_data(data: pd.DataFrame, label: str, col: str):
 
     # Iterate through every sequence (sliding window) in the data
     for i in range(len(data) - WINDOW_LENGTH):
-        sequence = data[i:i+WINDOW_LENGTH].drop(columns=ignore_cols)
-        sequence = sequence.to_numpy()
+        sequence = data[i:i+WINDOW_LENGTH].drop(columns=ignore_cols, errors='ignore')
+        sequence = scaler.transform(sequence)
         gt_label = labeller(i+WINDOW_LENGTH)
         X.append(sequence)
         y.append(gt_label)
 
-    X = np.array(X).astype('float32')
-    y = np.array(y).astype('float32')
+    X = np.array(X)
+    y = np.array(y)
 
     return X, y

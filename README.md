@@ -9,3 +9,5 @@ First working model: regression
 - After normalizing each sequence's data (standard normalization) and trying a different loss function (MAE), the predictions are more varied but still close to 0.
 - Trying to use the next closing price as the label instead of the percent return, the result is similar: the model predicts the same value across the entire range.
 - Finally, after forcing normalization, the model predicts prices somewhat well (not just staying at a constant, following the ups and downs). Need to investigate certain behavior of seeming offset by an amount.
+- It seems for stocks with lower absolute prices, the models performs worse. This is probably because of all values of all stocks are normalized according to the same min-max.
+- Even after using MAPE (mean absolute percent error) as the loss, the problem persits.

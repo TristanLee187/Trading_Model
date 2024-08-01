@@ -4,9 +4,9 @@ import numpy as np
 import pandas as pd
 from common import *
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import MinMaxScaler
 from keras.models import Sequential
-from keras.layers import LSTM, Dense, Input
+from keras.layers import LSTM, Dense, Input, Dropout
 from keras.callbacks import EarlyStopping
 import argparse
 
@@ -38,12 +38,9 @@ def prepare_training_data(time_interval: str, label: str):
     tickers_df = pd.read_csv(f'./{dir_prefix}_market_data/all_tickers.csv')
 
     # Normalize
-    std_scaler = StandardScaler()
-    tickers_data_scaled = std_scaler.fit_transform(tickers_df.drop(columns=['Ticker']))
-    tickers_df_scaled = pd.DataFrame(
-        np.column_stack([tickers_data_scaled, tickers_df['Ticker']]), 
-        index=tickers_df.index, columns=tickers_df.columns)
-    tickers_df_grouped = tickers_df_scaled.groupby(by=['Ticker'])
+    X_scaler = MinMaxScaler()
+    X_scaler.fit(tickers_df.drop(columns=ignore_cols))
+    tickers_df_grouped = tickers_df.groupby(by=['Ticker'])
 
     for ticker in tickers:
         data = tickers_df_grouped.get_group(ticker)
@@ -55,14 +52,15 @@ def prepare_training_data(time_interval: str, label: str):
             for day in days:
                 day_data = daily_data.get_group(day)
                 ticker_X, ticker_y = prepare_model_data(
-                    day_data, label, 'Close')
+                    day_data, label, X_scaler, 'Close')
 
                 X.append(ticker_X)
                 y.append(ticker_y)
 
         else:
             # Just use the whole file as the training set
-            ticker_X, ticker_y = prepare_model_data(data, label, 'Close')
+            ticker_X, ticker_y = prepare_model_data(
+                data, label, X_scaler, 'Close')
 
             X.append(ticker_X)
             y.append(ticker_y)
@@ -72,7 +70,11 @@ def prepare_training_data(time_interval: str, label: str):
     X = np.concatenate(X)
     y = np.concatenate(y)
 
-    return X, y, std_scaler
+    # Normalize the outputs as well
+    y_scaler = MinMaxScaler()
+    y = y_scaler.fit_transform(y.reshape(-1, 1))
+
+    return X, y, X_scaler, y_scaler
 
 
 def get_lstm_model(shape: tuple[int, int]):
@@ -90,7 +92,9 @@ def get_lstm_model(shape: tuple[int, int]):
     model = Sequential([
         Input(shape=(window_length, num_features)),
         LSTM(units=num_features**2, return_sequences=True),
+        Dropout(0.1),
         LSTM(units=100),
+        Dropout(0.1),
         Dense(units=1)
     ])
     return model
@@ -112,7 +116,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # Prepare training data
-    X, y, scaler = prepare_training_data(
+    X, y, X_scaler, y_scaler = prepare_training_data(
         args.time_interval, args.label)
 
     # Prepare validation data
@@ -137,5 +141,6 @@ if __name__ == '__main__':
         # Save the model
         model.save(f'{tag}_model.keras')
 
-        # Save the scaler
-        np.save(f'{tag}_scaler.npy', scaler)
+        # Save the scalers
+        np.save(f'{tag}_X_scaler.npy', X_scaler)
+        np.save(f'{tag}_y_scaler.npy', y_scaler)
