@@ -12,3 +12,7 @@ First working model: regression
 - It seems for stocks with lower absolute prices, the models performs worse. This is probably because of all values of all stocks are normalized according to the same min-max.
 - Even after using MAPE (mean absolute percent error) as the loss, the problem persits.
 - For the percent error, the expected result is very close to 0%.
+
+Second working model: regression (just price), Transformers
+- Transformer + LSTM pooling, and normalizing each input sequence separately.
+- Now the behavior is much closer to expected (very sensitive to the previous day's prices).
