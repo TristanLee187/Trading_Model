@@ -22,6 +22,7 @@ def prepare_training_data(time_interval: str, label: str):
             "1d": Use the "daily_market_data" data. Sequences span any gaps days.
         label (str): String indicating what value to use as the labels:
             "price": Use the price of the given column.
+            "price-change": Use the change in values of the given column.
 
     Returns:
         numpy.array, numpy.array: Two numpy arrays X and y containing the training instances and ground
@@ -135,7 +136,7 @@ if __name__ == '__main__':
     parser.add_argument('-t', '--time_interval', type=str, help='time interval data to train on',
                         choices=['1m', '1d'], required=True)
     parser.add_argument('-l', '--label', type=str, help='labels to use for each instance',
-                        choices=['price'], required=True)
+                        choices=['price', 'price-change'], required=True)
     parser.add_argument('-e', '--error', type=str,
                         help='error (loss) function to use', required=True)
     args = parser.parse_args()

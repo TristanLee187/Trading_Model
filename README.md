@@ -16,3 +16,4 @@ First working model: regression
 Second working model: regression (just price), Transformers
 - Transformer + LSTM pooling, and normalizing each input sequence separately.
 - Now the behavior is much closer to expected (very sensitive to the previous day's prices).
+- Even when trying a price chagne label, these predictions are very close to 0.

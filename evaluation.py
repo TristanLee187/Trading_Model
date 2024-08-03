@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 import argparse
 
 
-def reg_model_eval(model_path: str, model_arch: str, ticker: str, time_interval: str, 
+def reg_model_eval(model_path: str, model_arch: str, ticker: str, time_interval: str,
                    label: str, error: str, start_date: date, end_date: date = None):
     """
     Evaluate a regression model's predictions for the given ticker's price over some time period.
@@ -22,7 +22,7 @@ def reg_model_eval(model_path: str, model_arch: str, ticker: str, time_interval:
         time_interval (str): String with the time interval of the model. 
             Should be "1m" or "1d".
         label (str): String with the label used for the model. 
-            Should be "price".
+            Should be "price" or "price-change".
         error (str): String with the error (loss) function used by the model.
         start_date (datetime.date): Date for the first date of the time window for the evaluation.
             If time_interval is "1m", then this defines the day to get the 1-minute chart for.
@@ -53,15 +53,20 @@ def reg_model_eval(model_path: str, model_arch: str, ticker: str, time_interval:
         time_col = data['Minute'][WINDOW_LENGTH:]
 
     # Prepare test data and scalers to plot the real values
-    X, y_gt, scaler_mins, scaler_scales = prepare_model_data(data, label, 'Close')
+    X, y_gt, scaler_mins, scaler_scales = prepare_model_data(
+        data, label, 'Close')
 
     # Predict
     model = load_model(model_path)
     y_predictions = model.predict(X).reshape(len(y_gt))
 
     # Scale the ground truth and predictions back to their original scales
-    y_gt = y_gt / scaler_scales + scaler_mins
-    y_predictions = y_predictions / scaler_scales + scaler_mins
+    if label == 'price':
+        y_gt = y_gt / scaler_scales + scaler_mins
+        y_predictions = y_predictions / scaler_scales + scaler_mins
+    elif label == 'price-change':
+        y_gt = y_gt / scaler_scales
+        y_predictions = y_predictions / scaler_scales
 
     # Calculate various metrics.
     # MAE
@@ -77,6 +82,8 @@ def reg_model_eval(model_path: str, model_arch: str, ticker: str, time_interval:
         X_prices = data['Close'].iloc[WINDOW_LENGTH-1:-1]
         correct_incorrect = np.sign(
             (y_gt - X_prices) * (y_predictions - X_prices))
+    elif label == 'price-change':
+        correct_incorrect = np.sign(y_gt * y_predictions)
 
     percent_correct = len(
         [sign for sign in correct_incorrect if sign == 1]) / len(y_gt)
@@ -84,8 +91,12 @@ def reg_model_eval(model_path: str, model_arch: str, ticker: str, time_interval:
 
     # Plot the ground truth vs. predictions.
     fig = plt.figure(figsize=(10, 8))
-    plt.plot(time_col, y_gt, "k", label="Ground Truth")
-    plt.plot(time_col, y_predictions, "b", label="Predictions")
+    if label == 'price':
+        plt.plot(time_col, y_gt, "k", label="Ground Truth")
+        plt.plot(time_col, y_predictions, "b", label="Predictions")
+    elif label == 'price-change':
+        plt.scatter(time_col, y_gt, c="k", label="Ground Truth")
+        plt.scatter(time_col, y_predictions, c="b", label="Predictions")
     plt.legend()
 
     x_mapper = {
@@ -94,7 +105,7 @@ def reg_model_eval(model_path: str, model_arch: str, ticker: str, time_interval:
     plt.xlabel(x_mapper[time_interval])
 
     y_mapper = {
-        'price': "Price", 'percent-change': "Return (%)"
+        'price': "Price", 'price-change': "Price Change"
     }
     plt.ylabel(y_mapper[label])
 
@@ -124,7 +135,7 @@ if __name__ == '__main__':
     parser.add_argument('-t', '--time_interval', type=str, help='time interval data to train on',
                         choices=['1m', '1d'], required=True)
     parser.add_argument('-l', '--label', type=str, help='labels to use for each instance',
-                        choices=['price'], required=True)
+                        choices=['price', 'price-change'], required=True)
     parser.add_argument('-e', '--error', type=str,
                         help='error (loss) function to use', required=True)
     args = parser.parse_args()
@@ -141,5 +152,5 @@ if __name__ == '__main__':
         elif args.time_interval == '1m':
             start, end = date(2024, 7, 26), None
 
-        reg_model_eval(model_path, args.model, args.ticker, args.time_interval, 
+        reg_model_eval(model_path, args.model, args.ticker, args.time_interval,
                        args.label, args.error, start, end)

@@ -7,7 +7,6 @@ from sklearn.preprocessing import MinMaxScaler
 # Tickers to use for building datasets and training.
 tickers = ['AAPL', 'MSFT', 'NVDA', 'AMZN',
            '^GSPC', '^DJI', '^RUT', 'CL=F', 'GC=F']
-# tickers = ['^GSPC']
 
 # Number of time points to use in defining sequence data.
 WINDOW_LENGTH = 30
@@ -25,7 +24,7 @@ def prepare_model_data(data: pd.DataFrame, label: str, col: str):
         data (pandas.DataFrame): Pandas DataFrame containing the raw CSV data.
         label (str): String indicating what value to use as the labels:
             "price": Use the price of the given column.
-            "percent-change": Use the percent change in values of the given column.
+            "price-change": Use the change in values of the given column.
         col (str): Column name to use in creating the labels.
 
     Returns:
@@ -39,6 +38,8 @@ def prepare_model_data(data: pd.DataFrame, label: str, col: str):
     # Define the label function based on the label
     if label == 'price':
         def labeller(i): return data.iloc[i][col]
+    elif label == 'price-change':
+        def labeller(i): return data.iloc[i][col] - data.iloc[i-1][col]
 
     # Init return instances, labels, and scaler values
     scaler = MinMaxScaler()
@@ -48,12 +49,15 @@ def prepare_model_data(data: pd.DataFrame, label: str, col: str):
     for i in range(len(data) - WINDOW_LENGTH):
         sequence = local_data.iloc[i:i+WINDOW_LENGTH]
         sequence = scaler.fit_transform(sequence)
-        gt_label = labeller(i+WINDOW_LENGTH)
         X.append(sequence)
+        gt_label = labeller(i+WINDOW_LENGTH)
         # Get the scaler values needed to scale/revert
         col_index = np.where(scaler.get_feature_names_out() == col)[0][0]
         mi, scale = scaler.data_min_[col_index], scaler.scale_[col_index]
-        y.append((gt_label - mi) * scale)
+        if label == 'price':
+            y.append((gt_label - mi) * scale)
+        elif label == 'price-change':
+            y.append(gt_label * scale)
         scaler_mins.append(mi)
         scaler_scales.append(scale)
 
