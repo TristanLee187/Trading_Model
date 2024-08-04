@@ -4,10 +4,12 @@ import numpy as np
 import pandas as pd
 from common import *
 from sklearn.model_selection import train_test_split
+import tensorflow as tf
 from keras import Model
 from keras.models import Sequential
 from keras.layers import LSTM, Dense, Input, MultiHeadAttention, Add, LayerNormalization
 from keras.callbacks import EarlyStopping
+from keras.saving import register_keras_serializable
 import argparse
 
 
@@ -54,7 +56,7 @@ def prepare_training_data(time_interval: str, label: str):
                 X.append(ticker_X)
                 y.append(ticker_y)
 
-        else:
+        elif time_interval == '1d':
             # Just use the whole file as the training set
             ticker_X, ticker_y, mins, scales = prepare_model_data(
                 data, label, 'Close')
@@ -70,12 +72,60 @@ def prepare_training_data(time_interval: str, label: str):
     return X, y
 
 
-def get_lstm_model(shape: tuple[int, int]):
+@register_keras_serializable(package="Custom", name="weighted_cce")
+def custom_categorical_crossentropy(y_true, y_pred):
+    """
+    Customer categorical-crossentropy loss function on 3 classes that uses weights to 
+    penalize different classificiations differently.
+
+    Args:
+        y_true (np.array)
+        y_pred (np.array)
+
+    Returns:
+        function with arguments (np.array, np.array): Function that computes the loss w.r.t.
+            ground truth and prediction inputs.
+    """
+    weights = tf.constant([
+        [1.0, 1.5, 1.5],
+        [1.5, 1.0, 3.0],
+        [1.5, 3.0, 1.0]
+    ])
+
+    y_pred = tf.clip_by_value(y_pred, 1e-7, 1.0)
+    ce_loss = -tf.reduce_sum(y_true * tf.math.log(y_pred), axis=-1)
+    weights_tensor = tf.reduce_sum(tf.expand_dims(
+        weights, axis=0) * tf.expand_dims(y_true, axis=-1), axis=-2)
+    weighted_loss = ce_loss * tf.reduce_sum(weights_tensor, axis=-1)
+    return weighted_loss
+
+
+def last_layer(label: str):
+    """
+    Define the last layer of the architectrue depending on the task (given by the label).
+
+    Args:
+        label (str): The label type to train on.
+
+    Returns:
+        keras.src.layers: Keras layer to use for the model's output:
+            - "price" or "price-change" (regression): A Dense layer with 1 unit and sigmoid
+                activiation.
+            - "signal" (classification): A Dense layer with 3 units and softmax activation.
+    """
+    if label in ['price', 'price-change']:
+        return Dense(units=1, activation='sigmoid')
+    elif label == 'signal':
+        return Dense(units=3, activation='softmax')
+
+
+def get_lstm_model(shape: tuple[int, int], label: str):
     """
     Define an LSTM model.
 
     Args:
         shape (tuple[int, int]): shape of each input instance.
+        label (str):  The label type to train on.
 
     Returns:
         keras.models.Sequential: Sequential model with an LSTM architecture.
@@ -86,17 +136,18 @@ def get_lstm_model(shape: tuple[int, int]):
         Input(shape=(window_length, num_features)),
         LSTM(units=num_features**2, return_sequences=True),
         LSTM(units=100),
-        Dense(units=1)
+        last_layer(label)
     ])
     return model
 
 
-def get_transformer_model(shape: tuple[int, int]):
+def get_transformer_model(shape: tuple[int, int], label: str):
     """
     Define an LSTM and attention-based model..
 
     Args:
         shape (tuple[int, int]): shape of each input instance.
+        label (str):  The label type to train on.
 
     Returns:
         keras.models.Sequential: Sequential model with an LSTM and attention architecture.
@@ -107,7 +158,8 @@ def get_transformer_model(shape: tuple[int, int]):
             num_heads=num_heads, key_dim=key_dim)(x, x)
         x = Add()([x, attn_layer])
         x = LayerNormalization(epsilon=1e-6)(x)
-        ff = Dense(ff_dim_2)(Dense(ff_dim_1)(x))
+        ff = Dense(ff_dim_2, activation='sigmoid')(
+            Dense(ff_dim_1, activation='sigmoid')(x))
         x = Add()([x, ff])
         x = LayerNormalization(epsilon=1e-6)(x)
         return x
@@ -119,8 +171,8 @@ def get_transformer_model(shape: tuple[int, int]):
     transformer_layer_2 = transformer_block(
         transformer_layer_1, num_heads=4, key_dim=32, ff_dim_1=64, ff_dim_2=shape[1])
     lstm_pooling_layer = LSTM(units=32)(transformer_layer_2)
-    dense_layer = Dense(units=32)(lstm_pooling_layer)
-    output_layer = Dense(units=1)(dense_layer)
+    dense_layer = Dense(units=32, activation='sigmoid')(lstm_pooling_layer)
+    output_layer = last_layer(label)(dense_layer)
     model = Model(inputs=input_layer, outputs=output_layer)
 
     return model
@@ -136,9 +188,9 @@ if __name__ == '__main__':
     parser.add_argument('-t', '--time_interval', type=str, help='time interval data to train on',
                         choices=['1m', '1d'], required=True)
     parser.add_argument('-l', '--label', type=str, help='labels to use for each instance',
-                        choices=['price', 'price-change'], required=True)
+                        choices=['price', 'price-change', 'signal'], required=True)
     parser.add_argument('-e', '--error', type=str,
-                        help='error (loss) function to use', required=True)
+                        help='error (loss) function to use (ignored if classification)', required=True)
     args = parser.parse_args()
 
     # Prepare training data
@@ -151,20 +203,30 @@ if __name__ == '__main__':
 
     if args.model in ['LSTM', 'transformer']:
         if args.model == 'LSTM':
-            model = get_lstm_model(X[0].shape)
+            model = get_lstm_model(X[0].shape, args.label)
         else:
-            model = get_transformer_model(X[0].shape)
+            model = get_transformer_model(X[0].shape, args.label)
 
         # Compile with early stopping
-        model.compile(optimizer='adam', loss=args.error)
+        if args.label in ['price', 'price-change']:
+            model.compile(optimizer='adam', loss=args.error)
+        elif args.label == 'signal':
+            model.compile(
+                optimizer='adam', loss=custom_categorical_crossentropy, metrics=['accuracy'])
+
         early_stopping = EarlyStopping(patience=5, restore_best_weights=True)
 
         # Train!
         model.fit(X_train, y_train, epochs=50, batch_size=32,
                   validation_data=(X_val, y_val), callbacks=[early_stopping])
 
-        tag = './models/v3/{}_{}_close-{}_{}'.format(
-            args.model, args.time_interval, args.label, args.error
+        if args.label in ['price', 'price-change']:
+            loss_func_str = args.error
+        elif args.label == 'signal':
+            loss_func_str = 'cce'
+
+        tag = './models/{}/{}_{}_close-{}_{}'.format(
+            VERSION, args.model, args.time_interval, args.label, loss_func_str
         )
 
         # Save the model
