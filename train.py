@@ -8,6 +8,7 @@ import tensorflow as tf
 from keras import Model
 from keras.models import Sequential
 from keras.layers import LSTM, Dense, Input, MultiHeadAttention, Add, LayerNormalization
+from keras.regularizers import L1L2
 from keras.callbacks import EarlyStopping
 from keras.saving import register_keras_serializable
 import argparse
@@ -86,10 +87,11 @@ def custom_categorical_crossentropy(y_true, y_pred):
         function with arguments (np.array, np.array): Function that computes the loss w.r.t.
             ground truth and prediction inputs.
     """
+    # weights[i][j]: penalty for if the ground truth was i but the predicted was j.
     weights = tf.constant([
-        [1.0, 1.5, 1.5],
-        [1.5, 1.0, 3.0],
-        [1.5, 3.0, 1.0]
+        [0.0, 2.0, 2.0],
+        [3.0, 0.0, 6.0],
+        [3.0, 6.0, 0.0]
     ])
 
     y_pred = tf.clip_by_value(y_pred, 1e-7, 1.0)
@@ -155,7 +157,8 @@ def get_transformer_model(shape: tuple[int, int], label: str):
     # Define Transformer block
     def transformer_block(x, num_heads, key_dim, ff_dim_1, ff_dim_2):
         attn_layer = MultiHeadAttention(
-            num_heads=num_heads, key_dim=key_dim)(x, x)
+            num_heads=num_heads, key_dim=key_dim,
+            dropout=0.3, kernel_regularizer=L1L2(1e-2, 1e-2), bias_regularizer=L1L2(1e-2, 1e-2))(x, x)
         x = Add()([x, attn_layer])
         x = LayerNormalization(epsilon=1e-6)(x)
         ff = Dense(ff_dim_2, activation='sigmoid')(

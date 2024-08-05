@@ -6,8 +6,9 @@ from sklearn.preprocessing import MinMaxScaler
 from scipy.optimize import minimize
 
 # Tickers to use for building datasets and training.
-tickers = ['AAPL', 'MSFT', 'NVDA', 'AMZN',
-           '^GSPC', '^DJI', '^RUT', 'CL=F', 'GC=F']
+# tickers = ['AAPL', 'MSFT', 'NVDA', 'AMZN',
+#            '^GSPC', '^DJI', '^RUT', 'CL=F', 'GC=F']
+tickers = ['^GSPC','^DJI', '^RUT']
 
 # Number of time points to use in defining sequence data.
 WINDOW_LENGTH = 30
@@ -17,6 +18,9 @@ ignore_cols = ['Year', 'Month', 'Day', 'Ticker']
 
 # Version folder to save models and plots to.
 VERSION = 'v4'
+
+# Slope to use when classifying buy/sell labels.
+buy_sell_slope = 1.1
 
 
 def buy_sell_label(data: pd.DataFrame, index: int, col: str, mi: float, scale: float):
@@ -61,9 +65,9 @@ def buy_sell_label(data: pd.DataFrame, index: int, col: str, mi: float, scale: f
     next_prices = (data[col].iloc[index+WINDOW_LENGTH: index+2*WINDOW_LENGTH] - mi) * scale
     slope, intercept = best_fit_line_through_today_price(
         today_price, next_prices)
-    if slope <= -1/WINDOW_LENGTH:
+    if slope <= -buy_sell_slope/WINDOW_LENGTH:
         return np.array([0, 0, 1])
-    elif -1/WINDOW_LENGTH < slope < 1/WINDOW_LENGTH:
+    elif -buy_sell_slope/WINDOW_LENGTH < slope < buy_sell_slope/WINDOW_LENGTH:
         return np.array([1, 0, 0])
     else:
         return np.array([0, 1, 0])

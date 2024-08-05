@@ -177,23 +177,29 @@ def class_model_eval(model_path: str, model_arch: str, ticker: str, time_interva
     gt_sell_mask = y_gt == 2
     buy_mask = y_predictions == 1
     sell_mask = y_predictions == 2
-    fig = plt.figure(figsize=(10, 8))
     prices = data['Close'].iloc[WINDOW_LENGTH:]
-    plt.plot(time_col, prices, "k", label="Close")
-    # plt.scatter(time_col.iloc[:-WINDOW_LENGTH][gt_buy_mask], prices.iloc[:-WINDOW_LENGTH][gt_buy_mask], s=50, c='g', label="Ground Truth Buy")
-    # plt.scatter(time_col.iloc[:-WINDOW_LENGTH][gt_sell_mask], prices.iloc[:-WINDOW_LENGTH][gt_sell_mask], s=50, c='darkred', label="Ground Truth Sell")
-    plt.scatter(time_col.iloc[:-WINDOW_LENGTH][buy_mask], prices.iloc[:-WINDOW_LENGTH][buy_mask], s=40, c='lime', alpha=1, label="Predicted Buy")
-    plt.scatter(time_col.iloc[:-WINDOW_LENGTH][sell_mask], prices.iloc[:-WINDOW_LENGTH][sell_mask], s=40, c='red', alpha=1, label="Predicted Sell")
-    plt.legend()
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, sharey=True, figsize=(14, 8))
+    ax1.plot(time_col, prices, "k", label="Close")
+    ax1.scatter(time_col.iloc[:-WINDOW_LENGTH][gt_buy_mask], prices.iloc[:-
+                WINDOW_LENGTH][gt_buy_mask], s=50, c='g', label="Ground Truth Buy")
+    ax1.scatter(time_col.iloc[:-WINDOW_LENGTH][gt_sell_mask], prices.iloc[:-
+                WINDOW_LENGTH][gt_sell_mask], s=50, c='darkred', label="Ground Truth Sell")
+    ax1.legend()
+    ax2.plot(time_col, prices, "k", label="Close")
+    ax2.scatter(time_col.iloc[:-WINDOW_LENGTH][buy_mask], prices.iloc[:-
+                WINDOW_LENGTH][buy_mask], s=40, c='lime', alpha=1, label="Predicted Buy")
+    ax2.scatter(time_col.iloc[:-WINDOW_LENGTH][sell_mask], prices.iloc[:-
+                WINDOW_LENGTH][sell_mask], s=40, c='red', alpha=1, label="Predicted Sell")
+    ax2.legend()
 
     x_mapper = {
         '1d': "Date", '1m': "Time (in minutes)"
     }
-    plt.xlabel(x_mapper[time_interval])
+    fig.supxlabel(x_mapper[time_interval])
 
-    plt.ylabel('Price')
-
-    plt.title(f"{ticker} Predicted Buy/Sell Signals")
+    fig.supylabel('Price')
+    fig.suptitle(f"{ticker} Predicted Buy/Sell Signals")
 
     date_string = str(start_date)
     if time_interval == '1d':
