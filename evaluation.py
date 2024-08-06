@@ -181,16 +181,16 @@ def class_model_eval(model_path: str, model_arch: str, ticker: str, time_interva
 
     fig, (ax1, ax2) = plt.subplots(1, 2, sharey=True, figsize=(14, 8))
     ax1.plot(time_col, prices, "k", label="Close")
-    ax1.scatter(time_col.iloc[:-WINDOW_LENGTH][gt_buy_mask], prices.iloc[:-
-                WINDOW_LENGTH][gt_buy_mask], s=50, c='g', label="Ground Truth Buy")
-    ax1.scatter(time_col.iloc[:-WINDOW_LENGTH][gt_sell_mask], prices.iloc[:-
-                WINDOW_LENGTH][gt_sell_mask], s=50, c='darkred', label="Ground Truth Sell")
+    ax1.scatter(time_col.iloc[:-FUTURE_WINDOW_LENGTH][gt_buy_mask], prices.iloc[:-
+                FUTURE_WINDOW_LENGTH][gt_buy_mask], s=50, c='g', label="Ground Truth Buy")
+    ax1.scatter(time_col.iloc[:-FUTURE_WINDOW_LENGTH][gt_sell_mask], prices.iloc[:-
+                FUTURE_WINDOW_LENGTH][gt_sell_mask], s=50, c='darkred', label="Ground Truth Sell")
     ax1.legend()
     ax2.plot(time_col, prices, "k", label="Close")
-    ax2.scatter(time_col.iloc[:-WINDOW_LENGTH][buy_mask], prices.iloc[:-
-                WINDOW_LENGTH][buy_mask], s=40, c='lime', alpha=1, label="Predicted Buy")
-    ax2.scatter(time_col.iloc[:-WINDOW_LENGTH][sell_mask], prices.iloc[:-
-                WINDOW_LENGTH][sell_mask], s=40, c='red', alpha=1, label="Predicted Sell")
+    ax2.scatter(time_col.iloc[:-FUTURE_WINDOW_LENGTH][buy_mask], prices.iloc[:-
+                FUTURE_WINDOW_LENGTH][buy_mask], s=40, c='lime', alpha=1, label="Predicted Buy")
+    ax2.scatter(time_col.iloc[:-FUTURE_WINDOW_LENGTH][sell_mask], prices.iloc[:-
+                FUTURE_WINDOW_LENGTH][sell_mask], s=40, c='red', alpha=1, label="Predicted Sell")
     ax2.legend()
 
     x_mapper = {
@@ -245,7 +245,7 @@ if __name__ == '__main__':
         if args.time_interval == '1d':
             start, end = date(2024, 1, 1), date(2024, 6, 30)
         elif args.time_interval == '1m':
-            start, end = date(2024, 7, 26), None
+            start, end = date(2024, 8, 5), None
 
         if args.label in ['price', 'price-change']:
             reg_model_eval(model_path, args.model, args.ticker, args.time_interval,

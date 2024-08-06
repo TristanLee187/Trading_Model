@@ -141,8 +141,8 @@ if __name__ == '__main__':
             dfs = []
 
             # Start from 2024-06-27 and end on 2024-07-25
-            s = date(2024, 6, 27)
-            e = date(2024, 7, 25)
+            s = date(2024, 7, 8)
+            e = date(2024, 8, 2)
 
             while s <= e:
                 # Don't try to fetch weekend data

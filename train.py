@@ -7,7 +7,7 @@ from sklearn.model_selection import train_test_split
 import tensorflow as tf
 from keras import Model
 from keras.models import Sequential
-from keras.layers import LSTM, Dense, Input, MultiHeadAttention, Add, LayerNormalization
+from keras.layers import LSTM, Dense, Input, MultiHeadAttention, Add, LayerNormalization, Permute
 from keras.regularizers import L1L2
 from keras.callbacks import EarlyStopping
 from keras.saving import register_keras_serializable
@@ -65,7 +65,7 @@ def prepare_training_data(time_interval: str, label: str):
             X.append(ticker_X)
             y.append(ticker_y)
 
-        print(f'{ticker} done!')
+        print(f'{ticker} is done')
 
     X = np.concatenate(X)
     y = np.concatenate(y)
@@ -90,8 +90,8 @@ def custom_categorical_crossentropy(y_true, y_pred):
     # weights[i][j]: penalty for if the ground truth was i but the predicted was j.
     weights = tf.constant([
         [0.0, 2.0, 2.0],
-        [3.0, 0.0, 6.0],
-        [3.0, 6.0, 0.0]
+        [3.0, 0.0, 8.0],
+        [3.0, 8.0, 0.0]
     ])
 
     y_pred = tf.clip_by_value(y_pred, 1e-7, 1.0)
@@ -168,12 +168,24 @@ def get_transformer_model(shape: tuple[int, int], label: str):
         return x
 
     # Define the Transformer model
+    # Get inputs as both temporal and feature sequences
     input_layer = Input(shape=shape)
-    transformer_layer_1 = transformer_block(
-        input_layer, num_heads=4, key_dim=64, ff_dim_1=256, ff_dim_2=shape[1])
-    transformer_layer_2 = transformer_block(
-        transformer_layer_1, num_heads=4, key_dim=32, ff_dim_1=64, ff_dim_2=shape[1])
-    lstm_pooling_layer = LSTM(units=32)(transformer_layer_2)
+    transposed_input_layer = Permute((2, 1))(input_layer)
+    # Applt transformers to both of them
+    temporal_transformer_layer = transformer_block(
+        input_layer, num_heads=4, key_dim=64, ff_dim_1=128, ff_dim_2=shape[1])
+    feature_transformer_layer = transformer_block(
+        transposed_input_layer, num_heads=4, key_dim=64, ff_dim_1=128, ff_dim_2=shape[0])
+    # Concatenate them together
+    concated_layer = Add()([
+        temporal_transformer_layer, Permute((2,1))(feature_transformer_layer)
+    ])
+    # Apply one more transformer layer
+    combined_transformer_layer = transformer_block(
+        concated_layer, num_heads=4, key_dim=64, ff_dim_1=256, ff_dim_2=shape[1])
+    # Use LSTM to pool
+    lstm_pooling_layer = LSTM(units=32)(combined_transformer_layer)
+    # Output
     dense_layer = Dense(units=32, activation='sigmoid')(lstm_pooling_layer)
     output_layer = last_layer(label)(dense_layer)
     model = Model(inputs=input_layer, outputs=output_layer)
