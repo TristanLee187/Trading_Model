@@ -51,7 +51,7 @@ def prepare_training_data(time_interval: str, label: str):
             days = daily_data.groups.keys()
             for day in days:
                 day_data = daily_data.get_group(day)
-                ticker_X, ticker_y, mins, scales = prepare_model_data(
+                ticker_X, ticker_y, maxes = prepare_model_data(
                     day_data, label, 'Close')
 
                 X.append(ticker_X)
@@ -59,7 +59,7 @@ def prepare_training_data(time_interval: str, label: str):
 
         elif time_interval == '1d':
             # Just use the whole file as the training set
-            ticker_X, ticker_y, mins, scales = prepare_model_data(
+            ticker_X, ticker_y, maxes = prepare_model_data(
                 data, label, 'Close')
 
             X.append(ticker_X)
@@ -89,7 +89,7 @@ def custom_categorical_crossentropy(y_true, y_pred):
     """
     # weights[i][j]: penalty for if the ground truth was i but the predicted was j.
     weights = tf.constant([
-        [0.0, 2.0, 2.0],
+        [0.0, 3.0, 3.0],
         [3.0, 0.0, 8.0],
         [3.0, 8.0, 0.0]
     ])

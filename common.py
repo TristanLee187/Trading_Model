@@ -2,7 +2,7 @@
 
 import numpy as np
 import pandas as pd
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import MaxAbsScaler
 from scipy.optimize import minimize
 
 # Tickers to use for building datasets and training.
@@ -21,8 +21,8 @@ tickers = mag_7_tickers
 # Number of time points to use in defining sequence data.
 WINDOW_LENGTH = 30
 
-# Number of time points to use for defibing buy/sell labels (for constrained linear regression).
-FUTURE_WINDOW_LENGTH = 15
+# Number of time points to use for defining buy/sell labels (for constrained linear regression).
+FUTURE_WINDOW_LENGTH = 30
 
 # Columns from CSV files to keep out of the training data.
 ignore_cols = ['Year', 'Month', 'Day', 'Ticker']
@@ -31,10 +31,10 @@ ignore_cols = ['Year', 'Month', 'Day', 'Ticker']
 VERSION = 'v5'
 
 # Slope to use when classifying buy/sell labels.
-buy_sell_slope = 1
+buy_sell_slope = 0.01/FUTURE_WINDOW_LENGTH
 
 
-def buy_sell_label(data: pd.DataFrame, index: int, col: str, mi: float, scale: float):
+def buy_sell_label(data: pd.DataFrame, index: int, col: str, ma: float):
     """
     Create buy/sell/do nothing labels from the given data.
 
@@ -42,8 +42,7 @@ def buy_sell_label(data: pd.DataFrame, index: int, col: str, mi: float, scale: f
         data (pandas.DataFrame): Pandas DataFrame containing (unscaled) data.
         index (int): Index of the starting index of the input sequence.
         col (str): Name of the column for the prices to use.
-        mi (float): Minimum value (computed by a MinMaxScaler), to be used in normalization.
-        scale (float): Scale value (computed by a MinMaxScaler), to be used in normalization.
+        ma (float): Maximum value (computed by a MaxAbsScaler), to be used in normalization.
 
     Returns:
         numpy.array: One-hot encoded vector for the signal:
@@ -72,14 +71,13 @@ def buy_sell_label(data: pd.DataFrame, index: int, col: str, mi: float, scale: f
     # Choose a label depending on the slope of the constrained regression line using the next
     # WINDOW_LENGTH time steps.
     # [1,0,0] for do nothing, [0,1,0] for buy, [0,0,1] for sell.
-    today_price = (data[col].iloc[index+WINDOW_LENGTH-1] - mi) * scale
-    next_prices = (
-        data[col].iloc[index+WINDOW_LENGTH: index+WINDOW_LENGTH+FUTURE_WINDOW_LENGTH] - mi) * scale
+    today_price = data[col].iloc[index+WINDOW_LENGTH-1] / ma
+    next_prices = data[col].iloc[index+WINDOW_LENGTH: index + WINDOW_LENGTH+FUTURE_WINDOW_LENGTH] / ma
     slope, intercept = best_fit_line_through_today_price(
         today_price, next_prices)
-    if slope <= -buy_sell_slope/FUTURE_WINDOW_LENGTH:
+    if slope <= -buy_sell_slope:
         return np.array([0, 0, 1])
-    elif -buy_sell_slope/FUTURE_WINDOW_LENGTH < slope < buy_sell_slope/FUTURE_WINDOW_LENGTH:
+    elif -buy_sell_slope < slope < buy_sell_slope:
         return np.array([1, 0, 0])
     else:
         return np.array([0, 1, 0])
@@ -112,12 +110,12 @@ def prepare_model_data(data: pd.DataFrame, label: str, col: str):
         def labeller(
             i): return local_data.iloc[i][col] - local_data.iloc[i-1][col]
     elif label == 'signal':
-        def labeller(i, mi, scale): return buy_sell_label(
-            local_data, i, col, mi, scale)
+        def labeller(i, ma): return buy_sell_label(
+            local_data, i, col, ma)
 
     # Init return instances, labels, and scaler values
-    scaler = MinMaxScaler()
-    X, y, scaler_mins, scaler_scales = [], [], [], []
+    scaler = MaxAbsScaler()
+    X, y, scaler_maxes = [], [], []
 
     if label in ['price', 'price-change']:
         offset = 0
@@ -131,20 +129,16 @@ def prepare_model_data(data: pd.DataFrame, label: str, col: str):
         X.append(sequence)
         # Get the scaler values needed to scale/revert
         col_index = np.where(scaler.get_feature_names_out() == col)[0][0]
-        mi, scale = scaler.data_min_[col_index], scaler.scale_[col_index]
+        ma = scaler.max_abs_[col_index]
         if label == 'signal':
-            gt_label = labeller(i, mi, scale)
-        elif label == 'price':
-            gt_label = (labeller(i+WINDOW_LENGTH) - mi) * scale
-        elif label == 'price-change':
-            gt_label = labeller(i+WINDOW_LENGTH) * scale
+            gt_label = labeller(i, ma)
+        elif label in ['price', 'price-change']:
+            gt_label = labeller(i+WINDOW_LENGTH) / ma
         y.append(gt_label)
-        scaler_mins.append(mi)
-        scaler_scales.append(scale)
+        scaler_maxes.append(ma)
 
     X = np.array(X)
     y = np.array(y)
-    scaler_mins = np.array(scaler_mins)
-    scaler_scales = np.array(scaler_scales)
+    scaler_maxes = np.array(scaler_maxes)
 
-    return X, y, scaler_mins, scaler_scales
+    return X, y, scaler_maxes

@@ -53,7 +53,7 @@ def reg_model_eval(model_path: str, model_arch: str, ticker: str, time_interval:
         time_col = data['Minute'][WINDOW_LENGTH:]
 
     # Prepare test data and scalers to plot the real values
-    X, y_gt, scaler_mins, scaler_scales = prepare_model_data(
+    X, y_gt, scaler_maxes = prepare_model_data(
         data, label, 'Close')
 
     # Predict
@@ -61,12 +61,9 @@ def reg_model_eval(model_path: str, model_arch: str, ticker: str, time_interval:
     y_predictions = model.predict(X).reshape(len(y_gt))
 
     # Scale the ground truth and predictions back to their original scales
-    if label == 'price':
-        y_gt = y_gt / scaler_scales + scaler_mins
-        y_predictions = y_predictions / scaler_scales + scaler_mins
-    elif label == 'price-change':
-        y_gt = y_gt / scaler_scales
-        y_predictions = y_predictions / scaler_scales
+    if label in ['price', 'price-change']:
+        y_gt = y_gt * scaler_maxes
+        y_predictions = y_predictions * scaler_maxes
 
     # Calculate various metrics.
     # MAE
@@ -161,7 +158,7 @@ def class_model_eval(model_path: str, model_arch: str, ticker: str, time_interva
         time_col = data['Minute'][WINDOW_LENGTH:]
 
     # Prepare test data and scalers to plot the real values
-    X, y_gt, scaler_mins, scaler_scales = prepare_model_data(
+    X, y_gt, scaler_maxes = prepare_model_data(
         data, 'signal', 'Close')
 
     # Predict
