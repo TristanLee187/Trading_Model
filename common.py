@@ -22,13 +22,13 @@ tickers = mag_7_tickers
 WINDOW_LENGTH = 30
 
 # Number of time points to use for defibing buy/sell labels (for constrained linear regression).
-FUTURE_WINDOW_LENGTH = 15
+FUTURE_WINDOW_LENGTH = 30
 
 # Columns from CSV files to keep out of the training data.
 ignore_cols = ['Year', 'Month', 'Day', 'Ticker']
 
 # Version folder to save models and plots to.
-VERSION = 'v5'
+VERSION = 'v6'
 
 # Slope to use when classifying buy/sell labels.
 buy_sell_slope = 1

@@ -229,11 +229,11 @@ if __name__ == '__main__':
             model.compile(
                 optimizer='adam', loss=custom_categorical_crossentropy, metrics=['accuracy'])
 
-        early_stopping = EarlyStopping(patience=5, restore_best_weights=True)
+        # early_stopping = EarlyStopping(patience=5, restore_best_weights=True)
 
         # Train!
         model.fit(X_train, y_train, epochs=50, batch_size=32,
-                  validation_data=(X_val, y_val), callbacks=[early_stopping])
+                  validation_data=(X_val, y_val))
 
         if args.label in ['price', 'price-change']:
             loss_func_str = args.error
