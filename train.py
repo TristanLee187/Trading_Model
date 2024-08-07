@@ -89,9 +89,9 @@ def custom_categorical_crossentropy(y_true, y_pred):
     """
     # weights[i][j]: penalty for if the ground truth was i but the predicted was j.
     weights = tf.constant([
-        [0.0, 2.0, 2.0],
-        [3.0, 0.0, 8.0],
-        [3.0, 8.0, 0.0]
+        [0.0, 3.0, 3.0],
+        [3.0, 0.0, 10.0],
+        [3.0, 10.0, 0.0]
     ])
 
     y_pred = tf.clip_by_value(y_pred, 1e-7, 1.0)
@@ -158,7 +158,7 @@ def get_transformer_model(shape: tuple[int, int], label: str):
     def transformer_block(x, num_heads, key_dim, ff_dim_1, ff_dim_2):
         attn_layer = MultiHeadAttention(
             num_heads=num_heads, key_dim=key_dim,
-            dropout=0.3, kernel_regularizer=L1L2(1e-2, 1e-2), bias_regularizer=L1L2(1e-2, 1e-2))(x, x)
+            dropout=0.2, kernel_regularizer=L1L2(1e-2, 1e-3), bias_regularizer=L1L2(1e-2, 1e-3))(x, x)
         x = Add()([x, attn_layer])
         x = LayerNormalization(epsilon=1e-6)(x)
         ff = Dense(ff_dim_2, activation='sigmoid')(
@@ -229,11 +229,11 @@ if __name__ == '__main__':
             model.compile(
                 optimizer='adam', loss=custom_categorical_crossentropy, metrics=['accuracy'])
 
-        # early_stopping = EarlyStopping(patience=5, restore_best_weights=True)
+        early_stopping = EarlyStopping(patience=10, restore_best_weights=True)
 
         # Train!
-        model.fit(X_train, y_train, epochs=50, batch_size=32,
-                  validation_data=(X_val, y_val))
+        model.fit(X_train, y_train, epochs=50, batch_size=64,
+                  validation_data=(X_val, y_val), callbacks=[early_stopping])
 
         if args.label in ['price', 'price-change']:
             loss_func_str = args.error

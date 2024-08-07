@@ -16,7 +16,7 @@ sp_100_tickers = ['AAPL', 'ABBV', 'ABT', 'ACN', 'ADBE', 'AIG', 'AMD', 'AMGN', 'A
                   'SBUX', 'SCHW', 'SO', 'SPG', 'T', 'TGT', 'TMO', 'TMUS', 'TSLA', 'TXN', 'UNH',
                   'UNP', 'UPS', 'USB', 'V', 'VZ', 'WFC', 'WMT', 'XOM']
 mag_7_tickers = ['AAPL', 'AMZN', 'GOOGL', 'META', 'MSFT', 'NVDA', 'TSLA']
-tickers = mag_7_tickers
+tickers = sp_100_tickers
 
 # Number of time points to use in defining sequence data.
 WINDOW_LENGTH = 30
@@ -28,10 +28,10 @@ FUTURE_WINDOW_LENGTH = 30
 ignore_cols = ['Year', 'Month', 'Day', 'Ticker']
 
 # Version folder to save models and plots to.
-VERSION = 'v6'
+VERSION = 'final'
 
 # Slope to use when classifying buy/sell labels.
-buy_sell_slope = 1
+buy_sell_slope = 1.1
 
 
 def buy_sell_label(data: pd.DataFrame, index: int, col: str, mi: float, scale: float):
