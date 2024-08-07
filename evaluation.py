@@ -10,6 +10,41 @@ import matplotlib.pyplot as plt
 import argparse
 
 
+def build_eval_data(ticker: str, time_interval: str, start_date: date, end_date: date = None):
+    """
+    Prepare data needed for evaluation.
+
+    Args:
+        ticker (str): String with the ticker to evaluate the model on.
+        time_interval (str): String with the time interval of the model. 
+            Should be "1m" or "1d".
+        start_date (datetime.date): Date for the first date of the time window for the evaluation.
+            If time_interval is "1m", then this defines the day to get the 1-minute chart for.
+        end_date (datetime.date): Date for the last date of the time window for the evaluation.
+            If time_interval is "1m", then this is ignored (since only the start_date is used).
+
+    Returns:
+        pandas.DataFrame, pandas.Series: Market data, and a time column to use for plotting.
+            If time_interval is "1d", then the data contains enough previous data to make sequences
+                ending before start_date, thus the model can make predictions for start_date.
+    """
+    if time_interval == '1d':
+        data = build_daily_dataset(
+            ticker, start_date - timedelta(days=2 * WINDOW_LENGTH), end_date)
+        time_col = pd.to_datetime(data[['Year', 'Month', 'Day']]).dt.date
+        # Cut off dates that are too early
+        for i in range(len(data)):
+            if time_col[i+WINDOW_LENGTH] >= start_date:
+                data = data[i:]
+                break
+        time_col = time_col[time_col >= start_date]
+    elif time_interval == '1m':
+        data = build_minute_dataset(ticker, start_date)
+        time_col = data['Minute'][WINDOW_LENGTH:]
+
+    return data, time_col
+
+
 def reg_model_eval(model_path: str, model_arch: str, ticker: str, time_interval: str,
                    label: str, error: str, start_date: date, end_date: date = None):
     """
@@ -38,19 +73,8 @@ def reg_model_eval(model_path: str, model_arch: str, ticker: str, time_interval:
         Plots the ground truth labels vs. the model's predictions.
     """
     # Fetch Yahoo Finance data and init a time column for plotting
-    if time_interval == '1d':
-        data = build_daily_dataset(
-            ticker, start_date - timedelta(days=2 * WINDOW_LENGTH), end_date)
-        time_col = pd.to_datetime(data[['Year', 'Month', 'Day']]).dt.date
-        # Cut off dates that are too early
-        for i in range(len(data)):
-            if time_col[i+WINDOW_LENGTH] >= start_date:
-                data = data[i:]
-                break
-        time_col = time_col[time_col >= start_date]
-    elif time_interval == '1m':
-        data = build_minute_dataset(ticker, start_date)
-        time_col = data['Minute'][WINDOW_LENGTH:]
+    data, time_col = build_eval_data(
+        ticker, time_interval, start_date, end_date)
 
     # Prepare test data and scalers to plot the real values
     X, y_gt, scaler_mins, scaler_scales = prepare_model_data(
@@ -211,17 +235,8 @@ def all_tickers_class_model_eval(model_path: str, model_arch: str, time_interval
 
     for ticker in tickers:
         # Fetch Yahoo Finance data
-        if time_interval == '1d':
-            data = build_daily_dataset(
-                ticker, start_date - timedelta(days=2 * WINDOW_LENGTH), end_date)
-            time_col = pd.to_datetime(data[['Year', 'Month', 'Day']]).dt.date
-            # Cut off dates that are too early
-            for i in range(len(data)):
-                if time_col[i+WINDOW_LENGTH] >= start_date:
-                    data = data.iloc[i:]
-                    break
-        elif time_interval == '1m':
-            data = build_minute_dataset(ticker, start_date)
+        data, time_col = build_eval_data(
+            ticker, time_interval, start_date, end_date)
 
         # Prepare test data and scalers to plot the real values
         X, y_gt, scaler_mins, scaler_scales = prepare_model_data(
@@ -238,10 +253,12 @@ def all_tickers_class_model_eval(model_path: str, model_arch: str, time_interval
         performance = ticker_class_buy_sell_eval(y_predictions, prices)
         average_performance += performance
 
+        # Record the performance as strings for printing and export
         performance_string = f'Return for {ticker}: {round(100 * performance, 2)}%'
         print(performance_string)
         performance_output += performance_string + '\n'
 
+    # Record the average performance as strings
     average_performance /= len(tickers)
     average_performance_string = f'Average Return for all Tickers: {round(100 * average_performance, 2)}%'
     print(average_performance_string)
@@ -282,19 +299,8 @@ def ticker_class_model_eval(model_path: str, model_arch: str, ticker: str, time_
         Plots the ground prices with that day's predicted action.
     """
     # Fetch Yahoo Finance data and init a time column for plotting
-    if time_interval == '1d':
-        data = build_daily_dataset(
-            ticker, start_date - timedelta(days=2 * WINDOW_LENGTH), end_date)
-        time_col = pd.to_datetime(data[['Year', 'Month', 'Day']]).dt.date
-        # Cut off dates that are too early
-        for i in range(len(data)):
-            if time_col[i+WINDOW_LENGTH] >= start_date:
-                data = data.iloc[i:]
-                break
-        time_col = time_col[time_col >= start_date]
-    elif time_interval == '1m':
-        data = build_minute_dataset(ticker, start_date)
-        time_col = data['Minute'][WINDOW_LENGTH:]
+    data, time_col = build_eval_data(
+        ticker, time_interval, start_date, end_date)
 
     # Prepare test data and scalers to plot the real values
     X, y_gt, scaler_mins, scaler_scales = prepare_model_data(
@@ -317,16 +323,20 @@ def ticker_class_model_eval(model_path: str, model_arch: str, ticker: str, time_
 
     fig, (ax1, ax2) = plt.subplots(1, 2, sharey=True, figsize=(14, 8))
     ax1.plot(time_col, prices, "k", label="Close")
-    ax1.scatter(time_col.iloc[:-FUTURE_WINDOW_LENGTH][gt_buy_mask], prices.iloc[:-
-                FUTURE_WINDOW_LENGTH][gt_buy_mask], s=50, c='g', label="Ground Truth Buy")
-    ax1.scatter(time_col.iloc[:-FUTURE_WINDOW_LENGTH][gt_sell_mask], prices.iloc[:-
-                FUTURE_WINDOW_LENGTH][gt_sell_mask], s=50, c='darkred', label="Ground Truth Sell")
+
+    time_col = time_col.iloc[:-FUTURE_WINDOW_LENGTH]
+    prices = prices.iloc[:-FUTURE_WINDOW_LENGTH]
+
+    ax1.scatter(time_col[gt_buy_mask], prices[gt_buy_mask],
+                s=50, c='g', label="Ground Truth Buy")
+    ax1.scatter(time_col[gt_sell_mask], prices[gt_sell_mask],
+                s=50, c='darkred', label="Ground Truth Sell")
     ax1.legend()
     ax2.plot(time_col, prices, "k", label="Close")
-    ax2.scatter(time_col.iloc[:-FUTURE_WINDOW_LENGTH][buy_mask], prices.iloc[:-
-                FUTURE_WINDOW_LENGTH][buy_mask], s=40, c='lime', alpha=1, label="Predicted Buy")
-    ax2.scatter(time_col.iloc[:-FUTURE_WINDOW_LENGTH][sell_mask], prices.iloc[:-
-                FUTURE_WINDOW_LENGTH][sell_mask], s=40, c='red', alpha=1, label="Predicted Sell")
+    ax2.scatter(time_col[buy_mask], prices[buy_mask], s=40,
+                c='lime', alpha=1, label="Predicted Buy")
+    ax2.scatter(time_col[sell_mask], prices[sell_mask],
+                s=40, c='red', alpha=1, label="Predicted Sell")
     ax2.legend()
 
     x_mapper = {
@@ -384,6 +394,9 @@ if __name__ == '__main__':
             start, end = date(2024, 8, 5), None
 
         if args.label in ['price', 'price-change']:
+            if args.ticker == 'all':
+                raise ValueError(
+                    '"all" ticker choice is only supported for buy/sell signals')
             reg_model_eval(model_path, args.model, args.ticker, args.time_interval,
                            args.label, args.error, start, end)
         elif args.label == 'signal':
