@@ -22,4 +22,4 @@ Third working model (v4): classification (buy, sell, or do nothing), Transformer
 - Same architecture and normalizing as before, but with classification and softmax activation at the end.
 - Make ground truth labels as buy/sell/do nothing using constrained linear regression: for a some day, compute the best fit line for the next WINDOW_LENGTH days, but constrained such that the line goes through the day's price. Label based on that line's slope.
 - The model is predicts mostly "do nothing" for the 1 day chart, but predicts more buys/sells for the 1 minute chart. Looks like it's very sensitive to the slope thresholds.
-- Finish training on the S&P 100 companies daily data, results are mixed.
+- Finish training on the S&P 100 companies daily data, results are mixed, but the average return is 4.4% using a simple strategy following the signals.
