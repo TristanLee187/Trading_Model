@@ -15,22 +15,12 @@ sp_100_tickers = ['AAPL', 'ABBV', 'ABT', 'ACN', 'ADBE', 'AIG', 'AMD', 'AMGN', 'A
                   'NEE', 'NFLX', 'NKE', 'NVDA', 'ORCL', 'PEP', 'PFE', 'PG', 'PM', 'PYPL', 'QCOM', 'RTX',
                   'SBUX', 'SCHW', 'SO', 'SPG', 'T', 'TGT', 'TMO', 'TMUS', 'TSLA', 'TXN', 'UNH',
                   'UNP', 'UPS', 'USB', 'V', 'VZ', 'WFC', 'WMT', 'XOM']
-mag_7_tickers = ['AAPL', 'AMZN', 'GOOGL', 'META', 'MSFT', 'NVDA', 'TSLA']
 tickers = sp_100_tickers
 
-# Number of time points to use in defining sequence data.
-WINDOW_LENGTH = 30
-
-# Number of time points to use for defibing buy/sell labels (for constrained linear regression).
-FUTURE_WINDOW_LENGTH = 30
-
-# Columns from CSV files to keep out of the training data.
-ignore_cols = ['Open', 'High', 'Low', 'Adj Close', 'Year', 'Month', 'Day', 'Ticker']
-
 # Version folder to save models and plots to.
-VERSION = 'testing'
+VERSION = 'final'
 
-# Polynormial degree to use in reduction
+# Polynormial degree to use in reduction.
 POLY_DEGREE = 8
 
 
@@ -56,6 +46,12 @@ def poly_regression_reduction(sequence: np.ndarray):
     return reduced_sequence
 
 
+# Number of time points to use in defining sequence data.
+WINDOW_LENGTH = 30
+
+# Number of time points to use for defibing buy/sell labels (for constrained linear regression).
+FUTURE_WINDOW_LENGTH = 30
+
 # Slope to use when classifying buy/sell labels.
 buy_sell_slope = 1.2
 
@@ -73,7 +69,7 @@ def buy_sell_label(data: pd.DataFrame, index: int, col: str, mi: float, scale: f
 
     Returns:
         numpy.array: One-hot encoded vector for the signal:
-            - Do nothing: [1,0,0]
+            - Do nothing: [0,0,1]
             - Buy: [1,0,0]
             - Sell: [0,1,0]
     """
@@ -109,6 +105,11 @@ def buy_sell_label(data: pd.DataFrame, index: int, col: str, mi: float, scale: f
         return np.array([1, 0, 0])
     else:
         return np.array([0, 1, 0])
+
+
+# Columns from CSV files to keep out of the training data.
+ignore_cols = ['Open', 'High', 'Low',
+               'Adj Close', 'Year', 'Month', 'Day', 'Ticker']
 
 
 def prepare_model_data(data: pd.DataFrame, label: str, col: str):

@@ -1,4 +1,4 @@
-# Produce a CSV file of market data for multiple tickers by fetching from Yahoo Finance
+# Produce a CSV file of market data for multiple tickers by fetching from Yahoo Finance.
 
 import yfinance as yf
 import indicators as ind
@@ -40,7 +40,7 @@ def build_daily_dataset(ticker: str, start_date: date, end_date: date):
     data['Month'] = data.index.month
     data['Day'] = data.index.day
 
-    # Use certain amounts of time to define SMAs and EMAs
+    # Use certain amounts of time to define SMAs and EMAs.
     time_periods = [5, 20, 50, 200]
 
     # Calculate various SMAs and EMAs using the closing price.
@@ -67,7 +67,7 @@ def build_daily_dataset(ticker: str, start_date: date, end_date: date):
     # Remove the "Date" index.
     data.reset_index(drop=True, inplace=True)
 
-    # Return the DataFrame
+    # Return the DataFrame.
     return data
 
 
@@ -121,7 +121,7 @@ def build_minute_dataset(ticker: str, day: date):
     # Remove the "Date" index.
     data.reset_index(drop=True, inplace=True)
 
-    # Return the DataFrame
+    # Return the DataFrame.
     return data
 
 

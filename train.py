@@ -10,7 +10,6 @@ from keras.models import Sequential
 from keras.layers import LSTM, Dense, Input, MultiHeadAttention, Add, LayerNormalization, Permute
 from keras.regularizers import L1L2
 from keras.callbacks import EarlyStopping
-from keras.saving import register_keras_serializable
 import argparse
 
 
@@ -73,7 +72,6 @@ def prepare_training_data(time_interval: str, label: str):
     return X, y
 
 
-@register_keras_serializable(package="Custom", name="weighted_cce")
 def custom_categorical_crossentropy(y_true, y_pred):
     """
     Customer categorical-crossentropy loss function on 3 classes that uses weights to 
