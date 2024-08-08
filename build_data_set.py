@@ -128,7 +128,7 @@ def build_minute_dataset(ticker: str, day: date):
 if __name__ == '__main__':
     # Set up argparser
     parser = argparse.ArgumentParser(
-        prog="Export Raw Data"
+        description="Export Raw Data"
     )
     parser.add_argument('-t', '--time_interval', type=str, help='time interval data to train on',
                         choices=['1m', '1d'], required=True)

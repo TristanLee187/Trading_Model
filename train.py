@@ -194,7 +194,7 @@ def get_transformer_model(shape: tuple[int, int], label: str):
 if __name__ == '__main__':
     # Set up argparser
     parser = argparse.ArgumentParser(
-        prog="Train a Model"
+        description="Train a Model"
     )
     parser.add_argument('-m', '--model', type=str, help='model architecture to use',
                         choices=['LSTM', 'transformer'], required=True)

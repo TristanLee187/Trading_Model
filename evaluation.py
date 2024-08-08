@@ -333,7 +333,7 @@ def ticker_class_model_eval(model_path: str, model_arch: str, ticker: str, time_
 if __name__ == '__main__':
     # Set up argparser
     parser = argparse.ArgumentParser(
-        prog="Train a Model"
+        description="Train a Model"
     )
     parser.add_argument('-k', '--ticker', type=str,
                         help='ticker to evaluate the model on, or "all" for evaluating buy/sell signals', required=True)
