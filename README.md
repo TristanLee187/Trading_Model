@@ -5,14 +5,14 @@ This repository contains a Python and TensorFlow/Keras machine learning pipeline
 - Train a time series model on this data, creating fixed length input sequences as input instances and computing appropriate values or classes as ground truth labels, depending on the task.
 - Backtest the trained model on unseen data, producing appropriate plots and/or executing a simple trading strategy to produce a profit/loss.
 
-For modularity, each of these parts has a dedicated source file that can be run from the command line and produces some output used layer in the pipeline.
+For modularity, each of these parts has a dedicated source file that can be run from the command line and produces some output used later in the pipeline.
 
 ## Usage
 Typical usage of the pipeline will go as follows:
-- In the `common.py` file, set used hyperparameters such as the fixed length of the sequence and the list of tickers to use when building the dataset and training.
-- Run `build_data_set.py` to export a single CSV file with market data for all tickers, using either day-to-day or minute-to-minute data. This will create the appropriate file at `./daily_market_data` or `./minute_market_data` (not in this repository for space's sake). For daily data, the years 2000-2023 are used, and for minute-to-minute data, the latter 3 or so weeks of July 2024 are used (see the source code for exact detals).
+- In the `common.py` file, set hyperparameters such as the length of the sequence and the list of tickers to use when building the dataset and training.
+- Run `build_data_set.py` to export a single CSV file with market data for all tickers, using either day-to-day or minute-to-minute data. This will create the appropriate file at `./daily_market_data/` or `./minute_market_data/` (not in this repository for space's sake). For daily data, the years 2000-2023 are used, and for minute-to-minute data, the latter 3 or so weeks of July 2024 are used (see the source code for exact details).
 - Run `train.py` to train a model depending on, among other things, the desired architecture and labels. I chose to include LSTM and Transformer based architectures since they focus on sequence data, appropriate for time series. The generated model will be saved to `./models/VERSION/`, where `VERSION` is set in the `common.py` file. None of the models are included in this repository, again for space's sake.
-- Run `evaluate.py` to evaluate the trained model on unseen data. For daily data, this is 2024 data up to and including July, and for minute data, this is August 5th, 2024. Produce plots for specific tickers to evaluate with the human eye, or for buy/sell signals specifically, also simulate a simple strategy using the signals across all tickers to evaluate the average profit/loss. These outputs will be saved to `.plots/VERSON/`. I've included most of my own output across different version.
+- Run `evaluate.py` to evaluate the trained model on unseen data. For daily data, this is 2024 data up to and including July, and for minute data, this is August 5th, 2024. Produce plots for specific tickers to evaluate with the human eye, or for buy/sell signals specifically, also simulate a simple strategy using the signals across all tickers to evaluate the average profit/loss. These outputs will be saved to `./plots/VERSON/`. I've included most of my own output across different versions.
 
 Each of these files use `argparse` to be run from the command line with arguments, so you can use `-h` to see exaclty how to run each file. For example:
 
