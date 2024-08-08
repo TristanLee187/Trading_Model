@@ -174,53 +174,23 @@ def all_tickers_class_model_eval(model_path: str, model_arch: str, time_interval
     def ticker_class_buy_sell_eval(predicted_actions, prices):
         cost = 0
         revenue = 0
-        position = {
-            'type': '',
-            'count': 0
-        }
+        count = 0
         for i in range(len(prices)):
             # Check if there are potential actions
             if i < len(predicted_actions):
                 action = predicted_actions[i]
                 # Buy
                 if action == 1:
-                    # Start the position if first action
-                    if position['type'] == '':
-                        position['type'] = 'buy'
-                    # Add to the position if buying
-                    if position['type'] == 'buy':
-                        cost += prices[i]
-                        position['count'] += 1
-                    # Close the position if shorting, and start a buy position
-                    elif position['type'] == 'short':
-                        cost += position['count'] * prices[i]
-                        cost += prices[i]
-                        position['type'] = 'buy'
-                        position['count'] = 1
+                    cost += prices[i]
+                    count += 1
                 # Sell
                 elif action == 2:
-                    # Start the position if first action
-                    if position['type'] == '':
-                        position['type'] = 'short'
-                    # Add to the position if short
-                    if position['type'] == 'short':
-                        revenue += prices[i]
-                        position['count'] += 1
-                    # Close the position if buying, and start a short position
-                    elif position['type'] == 'buy':
-                        revenue += position['count'] * prices[i]
-                        revenue += prices[i]
-                        position['type'] = 'short'
-                        position['count'] = 1
+                    revenue += count * prices[i]
+                    count = 0
 
             # Close out the last position
             elif i == len(prices) - 1:
-                # Sell if we still have stock
-                if position['type'] == 'buy':
-                    revenue += position['count'] * prices[i]
-                # Buy if we're still shorting
-                elif position['type'] == 'short':
-                    cost += position['count'] * prices[i]
+                revenue += count * prices[i]
 
         # Return percentage performance (positive for gain, negative for loss, 0 if no actions were taken)
         if cost == 0:
