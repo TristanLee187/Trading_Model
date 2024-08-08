@@ -90,8 +90,8 @@ def custom_categorical_crossentropy(y_true, y_pred):
     # weights[i][j]: penalty for if the ground truth was i but the predicted was j.
     weights = tf.constant([
         [0.0, 3.0, 3.0],
-        [3.0, 0.0, 10.0],
-        [3.0, 10.0, 0.0]
+        [2.0, 0.0, 10.0],
+        [2.0, 10.0, 0.0]
     ])
 
     y_pred = tf.clip_by_value(y_pred, 1e-7, 1.0)
@@ -158,7 +158,7 @@ def get_transformer_model(shape: tuple[int, int], label: str):
     def transformer_block(x, num_heads, key_dim, ff_dim_1, ff_dim_2):
         attn_layer = MultiHeadAttention(
             num_heads=num_heads, key_dim=key_dim,
-            dropout=0.2, kernel_regularizer=L1L2(1e-2, 1e-3), bias_regularizer=L1L2(1e-2, 1e-3))(x, x)
+            dropout=0.1, kernel_regularizer=L1L2(1e-2, 1e-2), bias_regularizer=L1L2(1e-2, 1e-2))(x, x)
         x = Add()([x, attn_layer])
         x = LayerNormalization(epsilon=1e-6)(x)
         ff = Dense(ff_dim_2, activation='sigmoid')(
@@ -171,7 +171,7 @@ def get_transformer_model(shape: tuple[int, int], label: str):
     # Get inputs as both temporal and feature sequences
     input_layer = Input(shape=shape)
     transposed_input_layer = Permute((2, 1))(input_layer)
-    # Applt transformers to both of them
+    # Apply transformers to both of them
     temporal_transformer_layer = transformer_block(
         input_layer, num_heads=4, key_dim=64, ff_dim_1=128, ff_dim_2=shape[1])
     feature_transformer_layer = transformer_block(
@@ -229,10 +229,10 @@ if __name__ == '__main__':
             model.compile(
                 optimizer='adam', loss=custom_categorical_crossentropy, metrics=['accuracy'])
 
-        early_stopping = EarlyStopping(patience=10, restore_best_weights=True)
+        early_stopping = EarlyStopping(patience=5, restore_best_weights=True)
 
         # Train!
-        model.fit(X_train, y_train, epochs=50, batch_size=64,
+        model.fit(X_train, y_train, epochs=50, batch_size=32,
                   validation_data=(X_val, y_val), callbacks=[early_stopping])
 
         if args.label in ['price', 'price-change']:

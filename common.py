@@ -10,7 +10,7 @@ sp_100_tickers = ['AAPL', 'ABBV', 'ABT', 'ACN', 'ADBE', 'AIG', 'AMD', 'AMGN', 'A
                   'AXP', 'BA', 'BAC', 'BK', 'BKNG', 'BLK', 'BMY', 'C', 'CAT', 'CHTR', 'CL',
                   'CMCSA', 'COF', 'COP', 'COST', 'CRM', 'CSCO', 'CVS', 'CVX', 'DE', 'DHR', 'DIS',
                   'DOW', 'DUK', 'EMR', 'F', 'FDX', 'GD', 'GE', 'GILD', 'GM', 'GOOG', 'GOOGL', 'GS', 'HD',
-                  'HON', 'IBM', 'IBM', 'INTC', 'INTU', 'JNJ', 'JPM', 'KHC', 'KO', 'LIN', 'LLY', 'LMT',
+                  'HON', 'IBM', 'INTC', 'INTU', 'JNJ', 'JPM', 'KHC', 'KO', 'LIN', 'LLY', 'LMT',
                   'LOW', 'MA', 'MCD', 'MDLZ', 'MDT', 'MET', 'META', 'MMM', 'MO', 'MRK', 'MS', 'MSFT',
                   'NEE', 'NFLX', 'NKE', 'NVDA', 'ORCL', 'PEP', 'PFE', 'PG', 'PM', 'PYPL', 'QCOM', 'RTX',
                   'SBUX', 'SCHW', 'SO', 'SPG', 'T', 'TGT', 'TMO', 'TMUS', 'TSLA', 'TXN', 'UNH',
@@ -25,13 +25,39 @@ WINDOW_LENGTH = 30
 FUTURE_WINDOW_LENGTH = 30
 
 # Columns from CSV files to keep out of the training data.
-ignore_cols = ['Year', 'Month', 'Day', 'Ticker']
+ignore_cols = ['Open', 'High', 'Low', 'Adj Close', 'Year', 'Month', 'Day', 'Ticker']
 
 # Version folder to save models and plots to.
-VERSION = 'final'
+VERSION = 'testing'
+
+# Polynormial degree to use in reduction
+POLY_DEGREE = 8
+
+
+def poly_regression_reduction(sequence: np.ndarray):
+    """
+    Reduces a sequence to its best-fit polynomial features.
+
+    Args:
+        sequence (numpy.array): 2D sequence of shape (num_instances, num_features).
+
+    Returns:
+        numpy.array: Array of shape (num_instances, num_features), where each feature is
+            reduced to its best-fit polynomial.
+    """
+    num_instances, num_features = sequence.shape
+    reduced_sequence = np.zeros(sequence.shape)
+    for f in range(num_features):
+        poly_params = np.polyfit(
+            np.arange(num_instances), sequence[:, f], POLY_DEGREE)
+        fit_line = [np.poly1d(poly_params)(i)
+                    for i in np.arange(num_instances)]
+        reduced_sequence[:, f] = fit_line
+    return reduced_sequence
+
 
 # Slope to use when classifying buy/sell labels.
-buy_sell_slope = 1.1
+buy_sell_slope = 1.2
 
 
 def buy_sell_label(data: pd.DataFrame, index: int, col: str, mi: float, scale: float):
@@ -128,6 +154,7 @@ def prepare_model_data(data: pd.DataFrame, label: str, col: str):
     for i in range(len(data) - WINDOW_LENGTH - offset):
         sequence = local_data.iloc[i:i+WINDOW_LENGTH]
         sequence = scaler.fit_transform(sequence)
+        sequence = poly_regression_reduction(sequence)
         X.append(sequence)
         # Get the scaler values needed to scale/revert
         col_index = np.where(scaler.get_feature_names_out() == col)[0][0]

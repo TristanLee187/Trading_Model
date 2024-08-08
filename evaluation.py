@@ -207,7 +207,7 @@ def all_tickers_class_model_eval(model_path: str, model_arch: str, time_interval
                         revenue += prices[i]
                         position['count'] += 1
                     # Close the position if buying, and start a short position
-                    elif position['type'] == 'short':
+                    elif position['type'] == 'buy':
                         revenue += position['count'] * prices[i]
                         revenue += prices[i]
                         position['type'] = 'short'
@@ -323,6 +323,7 @@ def ticker_class_model_eval(model_path: str, model_arch: str, ticker: str, time_
 
     fig, (ax1, ax2) = plt.subplots(1, 2, sharey=True, figsize=(14, 8))
     ax1.plot(time_col, prices, "k", label="Close")
+    ax2.plot(time_col, prices, "k", label="Close")
 
     time_col = time_col.iloc[:-FUTURE_WINDOW_LENGTH]
     prices = prices.iloc[:-FUTURE_WINDOW_LENGTH]
@@ -332,7 +333,7 @@ def ticker_class_model_eval(model_path: str, model_arch: str, ticker: str, time_
     ax1.scatter(time_col[gt_sell_mask], prices[gt_sell_mask],
                 s=50, c='darkred', label="Ground Truth Sell")
     ax1.legend()
-    ax2.plot(time_col, prices, "k", label="Close")
+    
     ax2.scatter(time_col[buy_mask], prices[buy_mask], s=40,
                 c='lime', alpha=1, label="Predicted Buy")
     ax2.scatter(time_col[sell_mask], prices[sell_mask],

@@ -48,8 +48,10 @@ def build_daily_dataset(ticker: str, start_date: date, end_date: date):
         data[f'{time_period}_SMA'] = ind.sma(data['Close'], time_period)
         data[f'{time_period}_EMA'] = ind.ema(data['Close'], time_period)
 
-    # Calculate a golden/death cross using 50- and 200-SMA.
-    data['Cross'] = ind.cross(data['Close'], 50, 200)
+    # Calculate crosses using different pairs of SMAs.
+    data['Cross_1'] = ind.cross(data['Close'], 5, 20)
+    data['Cross_2'] = ind.cross(data['Close'], 20, 50)
+    data['Cross_3'] = ind.cross(data['Close'], 50, 200)
 
     # Calculate the MACD using 12- and 26-EMA.
     data['MACD'] = ind.macd(data['Close'], 12, 26)
