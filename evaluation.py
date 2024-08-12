@@ -7,6 +7,7 @@ from build_data_set import build_daily_dataset, build_minute_dataset
 from keras.models import load_model
 from datetime import date, timedelta
 import matplotlib.pyplot as plt
+import joblib
 import argparse
 
 
@@ -81,7 +82,11 @@ def reg_model_eval(model_path: str, model_arch: str, ticker: str, time_interval:
         data, label, 'Close')
 
     # Predict
-    model = load_model(model_path)
+    if model_arch in ['LSTM', 'transformer']:
+        model = load_model(model_path)
+    elif model_arch == 'forest':
+        model = joblib.load(model_path)
+        X = X.reshape(X.shape[0], -1)
     y_predictions = model.predict(X).reshape(len(y_gt))
 
     # Scale the ground truth and predictions back to their original scales
@@ -201,7 +206,10 @@ def all_tickers_class_model_eval(model_path: str, model_arch: str, time_interval
     average_performance = 0
     performance_output = ''
 
-    model = load_model(model_path, compile=False)
+    if model_arch in ['LSTM', 'transformer']:
+        model = load_model(model_path)
+    elif model_arch == 'forest':
+        model = joblib.load(model_path)
 
     for ticker in tickers:
         # Fetch Yahoo Finance data
@@ -211,12 +219,15 @@ def all_tickers_class_model_eval(model_path: str, model_arch: str, time_interval
         # Prepare test data and scalers to plot the real values
         X, y_gt, scaler_mins, scaler_scales = prepare_model_data(
             data, 'signal', 'Close')
+        if model_arch == 'forest':
+            X = X.reshape(X.shape[0], -1)
 
         # Predict
         y_predictions = model.predict(X)
 
         # Convert one-hot predictions to classes (0 for do nothing, 1 for buy, 2 for sell)
-        y_predictions = np.array(list(map(np.argmax, y_predictions)))
+        if model_arch != 'forest':
+            y_predictions = np.argmax(y_predictions, axis=1)
 
         # Evaluate the decisions against the actual prices
         prices = data['Close'].iloc[WINDOW_LENGTH:].to_numpy()
@@ -277,12 +288,17 @@ def ticker_class_model_eval(model_path: str, model_arch: str, ticker: str, time_
         data, 'signal', 'Close')
 
     # Predict
-    model = load_model(model_path, compile=False)
+    if model_arch in ['LSTM', 'transformer']:
+        model = load_model(model_path)
+    elif model_arch == 'forest':
+        model = joblib.load(model_path)
+        X = X.reshape(X.shape[0], -1)
     y_predictions = model.predict(X)
 
     # Convert one-hot predictions to classes (0 for do nothing, 1 for buy, 2 for sell)
-    y_gt = np.array(list(map(np.argmax, y_gt)))
-    y_predictions = np.array(list(map(np.argmax, y_predictions)))
+    y_gt = np.argmax(y_gt, axis=1)
+    if model_arch != 'forest':
+        y_predictions = np.argmax(y_predictions, axis=1)
 
     # Plot the ground truth vs. predictions.
     gt_buy_mask = y_gt == 1
@@ -303,7 +319,7 @@ def ticker_class_model_eval(model_path: str, model_arch: str, ticker: str, time_
     ax1.scatter(time_col[gt_sell_mask], prices[gt_sell_mask],
                 s=50, c='darkred', label="Ground Truth Sell")
     ax1.legend()
-    
+
     ax2.scatter(time_col[buy_mask], prices[buy_mask], s=40,
                 c='lime', alpha=1, label="Predicted Buy")
     ax2.scatter(time_col[sell_mask], prices[sell_mask],
@@ -338,15 +354,16 @@ if __name__ == '__main__':
     parser.add_argument('-k', '--ticker', type=str,
                         help='ticker to evaluate the model on, or "all" for evaluating buy/sell signals', required=True)
     parser.add_argument('-m', '--model', type=str, help='model architecture to use',
-                        choices=['LSTM', 'transformer'], required=True)
+                        choices=['LSTM', 'transformer', 'forest'], required=True)
     parser.add_argument('-t', '--time_interval', type=str, help='time interval data to train on',
                         choices=['1m', '1d'], required=True)
     parser.add_argument('-l', '--label', type=str, help='labels to use for each instance',
                         choices=['price', 'price-change', 'signal'], required=True)
     parser.add_argument('-e', '--error', type=str,
-                        help='error (loss) function to use (ignored if classification)', required=True)
+                        help='error (loss) function to use (ignored if classification)')
     args = parser.parse_args()
 
+    # Get the model location for NNs
     if args.model in ['LSTM', 'transformer']:
         if args.label in ['price', 'price-change']:
             loss_func_str = args.error
@@ -358,22 +375,29 @@ if __name__ == '__main__':
         )
 
         model_path = f'{tag}_model.keras'
+    # Get the model location for Random Forest
+    elif args.model == 'forest':
+        tag = './models/{}/{}_{}_close-{}'.format(
+            VERSION, args.model, args.time_interval, args.label
+        )
 
-        if args.time_interval == '1d':
-            start, end = date(2024, 1, 1), date(2024, 7, 31)
-        elif args.time_interval == '1m':
-            start, end = date(2024, 8, 5), None
+        model_path = f'{tag}_model.pkl'
 
-        if args.label in ['price', 'price-change']:
-            if args.ticker == 'all':
-                raise ValueError(
-                    '"all" ticker choice is only supported for buy/sell signals')
-            reg_model_eval(model_path, args.model, args.ticker, args.time_interval,
-                           args.label, args.error, start, end)
-        elif args.label == 'signal':
-            if args.ticker == 'all':
-                all_tickers_class_model_eval(model_path, args.model,
-                                             args.time_interval, start, end)
-            else:
-                ticker_class_model_eval(model_path, args.model, args.ticker,
-                                        args.time_interval, start, end)
+    if args.time_interval == '1d':
+        start, end = date(2024, 1, 1), date(2024, 7, 31)
+    elif args.time_interval == '1m':
+        start, end = date(2024, 8, 5), None
+
+    if args.label in ['price', 'price-change']:
+        if args.ticker == 'all':
+            raise ValueError(
+                '"all" ticker choice is only supported for buy/sell signals')
+        reg_model_eval(model_path, args.model, args.ticker, args.time_interval,
+                       args.label, args.error, start, end)
+    elif args.label == 'signal':
+        if args.ticker == 'all':
+            all_tickers_class_model_eval(model_path, args.model,
+                                         args.time_interval, start, end)
+        else:
+            ticker_class_model_eval(model_path, args.model, args.ticker,
+                                    args.time_interval, start, end)

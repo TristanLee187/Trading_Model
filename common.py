@@ -15,10 +15,11 @@ sp_100_tickers = ['AAPL', 'ABBV', 'ABT', 'ACN', 'ADBE', 'AIG', 'AMD', 'AMGN', 'A
                   'NEE', 'NFLX', 'NKE', 'NVDA', 'ORCL', 'PEP', 'PFE', 'PG', 'PM', 'PYPL', 'QCOM', 'RTX',
                   'SBUX', 'SCHW', 'SO', 'SPG', 'T', 'TGT', 'TMO', 'TMUS', 'TSLA', 'TXN', 'UNH',
                   'UNP', 'UPS', 'USB', 'V', 'VZ', 'WFC', 'WMT', 'XOM']
+mag_7_tickers = ['AAPL', 'AMZN', 'GOOGL', 'META', 'MSFT', 'NVDA', 'TSLA']
 tickers = sp_100_tickers
 
 # Version folder to save models and plots to.
-VERSION = 'final'
+VERSION = 'testing'
 
 # Polynormial degree to use in reduction.
 POLY_DEGREE = 8
@@ -53,7 +54,7 @@ WINDOW_LENGTH = 30
 FUTURE_WINDOW_LENGTH = 30
 
 # Slope to use when classifying buy/sell labels.
-buy_sell_slope = 1.2
+buy_sell_slope = 1
 
 
 def buy_sell_label(data: pd.DataFrame, index: int, col: str, mi: float, scale: float):
@@ -155,7 +156,7 @@ def prepare_model_data(data: pd.DataFrame, label: str, col: str):
     for i in range(len(data) - WINDOW_LENGTH - offset):
         sequence = local_data.iloc[i:i+WINDOW_LENGTH]
         sequence = scaler.fit_transform(sequence)
-        sequence = poly_regression_reduction(sequence)
+        # sequence = poly_regression_reduction(sequence)
         X.append(sequence)
         # Get the scaler values needed to scale/revert
         col_index = np.where(scaler.get_feature_names_out() == col)[0][0]

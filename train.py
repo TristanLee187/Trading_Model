@@ -10,6 +10,8 @@ from keras.models import Sequential
 from keras.layers import LSTM, Dense, Input, MultiHeadAttention, Add, LayerNormalization, Permute
 from keras.regularizers import L1L2
 from keras.callbacks import EarlyStopping
+from sklearn.ensemble import RandomForestClassifier
+import joblib
 import argparse
 
 
@@ -74,7 +76,7 @@ def prepare_training_data(time_interval: str, label: str):
 
 def custom_categorical_crossentropy(y_true, y_pred):
     """
-    Customer categorical-crossentropy loss function on 3 classes that uses weights to 
+    Customer categorical-crossentropy loss function on 3 classes that uses weights to
     penalize different classificiations differently.
 
     Args:
@@ -176,7 +178,7 @@ def get_transformer_model(shape: tuple[int, int], label: str):
         transposed_input_layer, num_heads=4, key_dim=64, ff_dim_1=128, ff_dim_2=shape[0])
     # Concatenate them together
     concated_layer = Add()([
-        temporal_transformer_layer, Permute((2,1))(feature_transformer_layer)
+        temporal_transformer_layer, Permute((2, 1))(feature_transformer_layer)
     ])
     # Apply one more transformer layer
     combined_transformer_layer = transformer_block(
@@ -191,30 +193,55 @@ def get_transformer_model(shape: tuple[int, int], label: str):
     return model
 
 
+def get_random_forest_model():
+    """
+    Define a Random Forest with its hyperparameters.
+
+    Args:
+        None
+
+    Returns:
+        sklearn.ensemble.RandomForestClassifier: Random Forest model with
+            set hyperparameters.
+    """
+    model = RandomForestClassifier(
+        n_estimators=100,
+        max_samples=0.1,
+        max_features=None,
+        class_weight='balanced',
+        criterion="entropy",
+        min_samples_leaf=10,
+        oob_score=True,
+        random_state=42,
+    )
+
+    return model
+
+
 if __name__ == '__main__':
     # Set up argparser
     parser = argparse.ArgumentParser(
         description="Train a Model"
     )
-    parser.add_argument('-m', '--model', type=str, help='model architecture to use',
-                        choices=['LSTM', 'transformer'], required=True)
+    parser.add_argument('-m', '--model', type=str, help='model type/architecture to use',
+                        choices=['LSTM', 'transformer', 'forest'], required=True)
     parser.add_argument('-t', '--time_interval', type=str, help='time interval data to train on',
                         choices=['1m', '1d'], required=True)
     parser.add_argument('-l', '--label', type=str, help='labels to use for each instance',
                         choices=['price', 'price-change', 'signal'], required=True)
     parser.add_argument('-e', '--error', type=str,
-                        help='error (loss) function to use (ignored if classification)', required=True)
+                        help='error (loss) function to use (ignored if classification)')
     args = parser.parse_args()
 
     # Prepare training data
     X, y = prepare_training_data(
         args.time_interval, args.label)
 
-    # Prepare validation data
-    X_train, X_val, y_train, y_val = train_test_split(
-        X, y, test_size=0.2, random_state=42)
-
     if args.model in ['LSTM', 'transformer']:
+        # Prepare validation data
+        X_train, X_val, y_train, y_val = train_test_split(
+            X, y, test_size=0.2, random_state=42)
+        # Get appropriate NN architecture
         if args.model == 'LSTM':
             model = get_lstm_model(X[0].shape, args.label)
         else:
@@ -244,3 +271,22 @@ if __name__ == '__main__':
 
         # Save the model
         model.save(f'{tag}_model.keras')
+
+    elif args.model == "forest":
+        model = get_random_forest_model()
+
+        # Flatten data to feed into random forest
+        X = X.reshape(X.shape[0], -1)
+
+        # Change to class numbers if classifying
+        if args.label == 'signal':
+            y = np.argmax(y, axis=1)
+
+        # Train!
+        model = model.fit(X, y)
+
+        tag = './models/{}/{}_{}_close-{}'.format(
+            VERSION, args.model, args.time_interval, args.label
+        )
+        # Save the model
+        joblib.dump(model, f'{tag}_model.pkl')
