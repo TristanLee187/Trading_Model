@@ -5,6 +5,8 @@ import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
 from scipy.optimize import minimize
 
+pd.options.mode.chained_assignment = None
+
 # Tickers to use for building datasets and training.
 sp_100_tickers = ['AAPL', 'ABBV', 'ABT', 'ACN', 'ADBE', 'AIG', 'AMD', 'AMGN', 'AMT', 'AMZN', 'AVGO',
                   'AXP', 'BA', 'BAC', 'BK', 'BKNG', 'BLK', 'BMY', 'C', 'CAT', 'CHTR', 'CL',
@@ -113,7 +115,7 @@ ignore_cols = ['Open', 'High', 'Low',
                'Adj Close', 'Year', 'Month', 'Day', 'Ticker']
 
 
-def prepare_model_data(data: pd.DataFrame, label: str, col: str):
+def prepare_model_data(data: pd.DataFrame, label: str, col: str, model_arch: str):
     """
     Prepare input instances and ground truth labels (X and y) given raw CSV data, using the defined
         WINDOW_LENGTH as the sequence length, and normalizing each sequence with a MinMaxScaler.
@@ -124,6 +126,7 @@ def prepare_model_data(data: pd.DataFrame, label: str, col: str):
             "price": Use the price of the given column.
             "price-change": Use the change in values of the given column.
         col (str): Column name to use in creating the labels.
+        model_arch (str): Model architecture to train, which affects the input format.
 
     Returns:
         numpy.array, numpy.array: Two numpy arrays X and y containing the training instances and ground
@@ -148,13 +151,16 @@ def prepare_model_data(data: pd.DataFrame, label: str, col: str):
     X, y, scaler_mins, scaler_scales = [], [], [], []
 
     if label in ['price', 'price-change']:
-        offset = 0
+        right_offset = 0
     elif label == 'signal':
-        offset = FUTURE_WINDOW_LENGTH
+        right_offset = FUTURE_WINDOW_LENGTH
 
     # Iterate through every sequence (sliding window) in the data
-    for i in range(len(data) - WINDOW_LENGTH - offset):
+    for i in range(len(data) - WINDOW_LENGTH - right_offset):
         sequence = local_data.iloc[i:i+WINDOW_LENGTH]
+        if model_arch == 'forest':
+            close_diff = sequence['Close'].diff().fillna(0)
+            sequence['Close Diff'] = close_diff
         sequence = scaler.fit_transform(sequence)
         # sequence = poly_regression_reduction(sequence)
         X.append(sequence)

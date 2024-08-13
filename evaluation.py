@@ -79,7 +79,7 @@ def reg_model_eval(model_path: str, model_arch: str, ticker: str, time_interval:
 
     # Prepare test data and scalers to plot the real values
     X, y_gt, scaler_mins, scaler_scales = prepare_model_data(
-        data, label, 'Close')
+        data, label, 'Close', model_arch)
 
     # Predict
     if model_arch in ['LSTM', 'transformer']:
@@ -175,11 +175,13 @@ def all_tickers_class_model_eval(model_path: str, model_arch: str, time_interval
         percentage gain/loss. Also, print out the average gain/loss for all tickers. Export these results 
         to a text file as well.
     """
-    # Compute the cost and revenue of predictions given ground truth prices
+    # Compute the profit/loss of predictions given ground truth prices, as well as
+    # the number of total predictions to use as a "confidence" weight.
     def ticker_class_buy_sell_eval(predicted_actions, prices):
         cost = 0
         revenue = 0
         count = 0
+        confidence = 1
         for i in range(len(prices)):
             # Check if there are potential actions
             if i < len(predicted_actions):
@@ -188,10 +190,12 @@ def all_tickers_class_model_eval(model_path: str, model_arch: str, time_interval
                 if action == 1:
                     cost += prices[i]
                     count += 1
+                    confidence += 1
                 # Sell
                 elif action == 2:
                     revenue += count * prices[i]
                     count = 0
+                    confidence += 1
 
             # Close out the last position
             elif i == len(prices) - 1:
@@ -199,11 +203,12 @@ def all_tickers_class_model_eval(model_path: str, model_arch: str, time_interval
 
         # Return percentage performance (positive for gain, negative for loss, 0 if no actions were taken)
         if cost == 0:
-            return 0
+            return 0, confidence
         delta = revenue - cost
-        return delta / cost
+        return delta / cost, confidence
 
     average_performance = 0
+    total_confidence = 0
     performance_output = ''
 
     if model_arch in ['LSTM', 'transformer']:
@@ -218,7 +223,7 @@ def all_tickers_class_model_eval(model_path: str, model_arch: str, time_interval
 
         # Prepare test data and scalers to plot the real values
         X, y_gt, scaler_mins, scaler_scales = prepare_model_data(
-            data, 'signal', 'Close')
+            data, 'signal', 'Close', model_arch)
         if model_arch == 'forest':
             X = X.reshape(X.shape[0], -1)
 
@@ -231,8 +236,10 @@ def all_tickers_class_model_eval(model_path: str, model_arch: str, time_interval
 
         # Evaluate the decisions against the actual prices
         prices = data['Close'].iloc[WINDOW_LENGTH:].to_numpy()
-        performance = ticker_class_buy_sell_eval(y_predictions, prices)
-        average_performance += performance
+        performance, confidence = ticker_class_buy_sell_eval(
+            y_predictions, prices)
+        average_performance += confidence * performance
+        total_confidence += confidence
 
         # Record the performance as strings for printing and export
         performance_string = f'Return for {ticker}: {round(100 * performance, 2)}%'
@@ -240,7 +247,7 @@ def all_tickers_class_model_eval(model_path: str, model_arch: str, time_interval
         performance_output += performance_string + '\n'
 
     # Record the average performance as strings
-    average_performance /= len(tickers)
+    average_performance /= total_confidence
     average_performance_string = f'Average Return for all Tickers: {round(100 * average_performance, 2)}%'
     print(average_performance_string)
     performance_output += '\n' + average_performance_string
@@ -285,7 +292,7 @@ def ticker_class_model_eval(model_path: str, model_arch: str, ticker: str, time_
 
     # Prepare test data and scalers to plot the real values
     X, y_gt, scaler_mins, scaler_scales = prepare_model_data(
-        data, 'signal', 'Close')
+        data, 'signal', 'Close', model_arch)
 
     # Predict
     if model_arch in ['LSTM', 'transformer']:

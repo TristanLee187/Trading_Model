@@ -15,7 +15,7 @@ import joblib
 import argparse
 
 
-def prepare_training_data(time_interval: str, label: str):
+def prepare_training_data(time_interval: str, label: str, model_arch: str):
     """
     Prepare training data (inputs and ground truth labels).
 
@@ -44,7 +44,7 @@ def prepare_training_data(time_interval: str, label: str):
     tickers_df_grouped = tickers_df.groupby(by=['Ticker'])
 
     for ticker in tickers:
-        data = tickers_df_grouped.get_group(ticker)
+        data = tickers_df_grouped.get_group((ticker,))
 
         if time_interval == '1m':
             # Break down each file into its component days
@@ -53,7 +53,7 @@ def prepare_training_data(time_interval: str, label: str):
             for day in days:
                 day_data = daily_data.get_group(day)
                 ticker_X, ticker_y, mins, scales = prepare_model_data(
-                    day_data, label, 'Close')
+                    day_data, label, 'Close', model_arch)
 
                 X.append(ticker_X)
                 y.append(ticker_y)
@@ -61,7 +61,7 @@ def prepare_training_data(time_interval: str, label: str):
         elif time_interval == '1d':
             # Just use the whole file as the training set
             ticker_X, ticker_y, mins, scales = prepare_model_data(
-                data, label, 'Close')
+                data, label, 'Close', model_arch)
 
             X.append(ticker_X)
             y.append(ticker_y)
@@ -210,7 +210,7 @@ def get_random_forest_model():
         max_features=None,
         class_weight='balanced',
         criterion="entropy",
-        min_samples_leaf=10,
+        min_samples_leaf=16,
         oob_score=True,
         random_state=42,
     )
@@ -235,7 +235,7 @@ if __name__ == '__main__':
 
     # Prepare training data
     X, y = prepare_training_data(
-        args.time_interval, args.label)
+        args.time_interval, args.label, args.model)
 
     if args.model in ['LSTM', 'transformer']:
         # Prepare validation data
