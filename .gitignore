@@ -170,3 +170,6 @@ models/
 
 # Testing plots
 plots/testing/
+
+# Exploration
+exploration/

@@ -40,6 +40,9 @@ def build_daily_dataset(ticker: str, start_date: date, end_date: date):
     data['Month'] = data.index.month
     data['Day'] = data.index.day
 
+    # Calculate percent changes.
+    data['Percent_Change'] = ind.percent_change(data['Close'])
+
     # Use certain amounts of time to define SMAs and EMAs.
     time_periods = [5, 20, 50, 200]
 
@@ -59,6 +62,9 @@ def build_daily_dataset(ticker: str, start_date: date, end_date: date):
     # Calculate the stochastic oscillator.
     data['Stochastic_Oscillator'] = ind.stochastic_oscillator(
         data['Close'], 14)
+
+    # Calculate the RSI.
+    data['RSI'] = ind.rsi(data['Close'], 14)
 
     # Filter out rows with null values and whose dates are before the requested start_date
     data = data.dropna()
@@ -97,6 +103,9 @@ def build_minute_dataset(ticker: str, day: date):
     data['Day'] = day.day
     data['Minute'] = 60 * data.index.hour + data.index.minute
 
+    # Calculate percent changes.
+    data['Percent_Change'] = ind.percent_change(data['Close'])
+
     # Use certain amounts of time to define SMAs and EMAs
     time_periods = [5, 20, 50]
 
@@ -114,6 +123,9 @@ def build_minute_dataset(ticker: str, day: date):
     # Calculate the stochastic oscillator.
     data['Stochastic_Oscillator'] = ind.stochastic_oscillator(
         data['Close'], 14)
+
+    # Calculate the RSI.
+    data['RSI'] = ind.rsi(data['Close'], 14)
 
     # Filter out rows with null values (times where the SMA/EMA aren't defined yet because it's too early in the day).
     data = data.dropna()
@@ -177,6 +189,6 @@ if __name__ == '__main__':
             tickers_df.append(data)
 
             print(f'{ticker} is done')
-        
+
         tickers_df = pd.concat(tickers_df)
         tickers_df.to_csv('./daily_market_data/all_tickers.csv', index=False)

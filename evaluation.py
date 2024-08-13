@@ -79,11 +79,11 @@ def reg_model_eval(model_path: str, model_arch: str, ticker: str, time_interval:
 
     # Prepare test data and scalers to plot the real values
     X, y_gt, scaler_mins, scaler_scales = prepare_model_data(
-        data, label, 'Close', model_arch)
+        data, label, 'Close')
 
     # Predict
     if model_arch in ['LSTM', 'transformer']:
-        model = load_model(model_path)
+        model = load_model(model_path, compile=False)
     elif model_arch == 'forest':
         model = joblib.load(model_path)
         X = X.reshape(X.shape[0], -1)
@@ -212,7 +212,7 @@ def all_tickers_class_model_eval(model_path: str, model_arch: str, time_interval
     performance_output = ''
 
     if model_arch in ['LSTM', 'transformer']:
-        model = load_model(model_path)
+        model = load_model(model_path, compile=False)
     elif model_arch == 'forest':
         model = joblib.load(model_path)
 
@@ -223,7 +223,7 @@ def all_tickers_class_model_eval(model_path: str, model_arch: str, time_interval
 
         # Prepare test data and scalers to plot the real values
         X, y_gt, scaler_mins, scaler_scales = prepare_model_data(
-            data, 'signal', 'Close', model_arch)
+            data, 'signal', 'Close')
         if model_arch == 'forest':
             X = X.reshape(X.shape[0], -1)
 
@@ -242,7 +242,7 @@ def all_tickers_class_model_eval(model_path: str, model_arch: str, time_interval
         total_confidence += confidence
 
         # Record the performance as strings for printing and export
-        performance_string = f'Return for {ticker}: {round(100 * performance, 2)}%'
+        performance_string = f'{ticker}: {round(100 * performance, 2)}% return with {confidence-1} actions'
         print(performance_string)
         performance_output += performance_string + '\n'
 
@@ -292,11 +292,11 @@ def ticker_class_model_eval(model_path: str, model_arch: str, ticker: str, time_
 
     # Prepare test data and scalers to plot the real values
     X, y_gt, scaler_mins, scaler_scales = prepare_model_data(
-        data, 'signal', 'Close', model_arch)
+        data, 'signal', 'Close')
 
     # Predict
     if model_arch in ['LSTM', 'transformer']:
-        model = load_model(model_path)
+        model = load_model(model_path, compile=False)
     elif model_arch == 'forest':
         model = joblib.load(model_path)
         X = X.reshape(X.shape[0], -1)
@@ -365,7 +365,7 @@ if __name__ == '__main__':
     parser.add_argument('-t', '--time_interval', type=str, help='time interval data to train on',
                         choices=['1m', '1d'], required=True)
     parser.add_argument('-l', '--label', type=str, help='labels to use for each instance',
-                        choices=['price', 'price-change', 'signal'], required=True)
+                        choices=['price', 'signal'], required=True)
     parser.add_argument('-e', '--error', type=str,
                         help='error (loss) function to use (ignored if classification)')
     args = parser.parse_args()

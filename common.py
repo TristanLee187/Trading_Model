@@ -2,7 +2,6 @@
 
 import numpy as np
 import pandas as pd
-from sklearn.preprocessing import MinMaxScaler
 from scipy.optimize import minimize
 
 pd.options.mode.chained_assignment = None
@@ -114,8 +113,11 @@ def buy_sell_label(data: pd.DataFrame, index: int, col: str, mi: float, scale: f
 ignore_cols = ['Open', 'High', 'Low',
                'Adj Close', 'Year', 'Month', 'Day', 'Ticker']
 
+# Columns to not normalize (using the closing price) for the training data.
+keep_cols = ['Percent_Change', 'Stochastic_Oscillator', 'RSI']
 
-def prepare_model_data(data: pd.DataFrame, label: str, col: str, model_arch: str):
+
+def prepare_model_data(data: pd.DataFrame, label: str, col: str):
     """
     Prepare input instances and ground truth labels (X and y) given raw CSV data, using the defined
         WINDOW_LENGTH as the sequence length, and normalizing each sequence with a MinMaxScaler.
@@ -124,56 +126,55 @@ def prepare_model_data(data: pd.DataFrame, label: str, col: str, model_arch: str
         data (pandas.DataFrame): Pandas DataFrame containing the raw CSV data.
         label (str): String indicating what value to use as the labels:
             "price": Use the price of the given column.
-            "price-change": Use the change in values of the given column.
+            "signal": Use regression to indicate upward/downward/neither movement.
         col (str): Column name to use in creating the labels.
-        model_arch (str): Model architecture to train, which affects the input format.
 
     Returns:
         numpy.array, numpy.array: Two numpy arrays X and y containing the training instances and ground
             truth labels, respectively. X will have shape (len(data) - WINDOW_LENGTH, WINDOW_LENGTH, NUM_FEATURES),
             while y will have shape (len(data) - WINDOW_LENGTH).
-            Each training instance of X is normalized
+            Each training instance of X is normalized locally using its own min/max col value.
     """
     local_data = data.drop(columns=ignore_cols, errors='ignore')
 
     # Define the label function based on the label
     if label == 'price':
-        def labeller(i): return local_data.iloc[i][col]
-    elif label == 'price-change':
-        def labeller(
-            i): return local_data.iloc[i][col] - local_data.iloc[i-1][col]
+        def labeller(i, mi, scale):
+            return local_data.iloc[i][col]
     elif label == 'signal':
-        def labeller(i, mi, scale): return buy_sell_label(
-            local_data, i, col, mi, scale)
+        def labeller(i, mi, scale):
+            return buy_sell_label(local_data, i, col, mi, scale)
 
     # Init return instances, labels, and scaler values
-    scaler = MinMaxScaler()
     X, y, scaler_mins, scaler_scales = [], [], [], []
 
-    if label in ['price', 'price-change']:
+    # Define right boundary for regression based signals
+    if label == 'price':
         right_offset = 0
     elif label == 'signal':
         right_offset = FUTURE_WINDOW_LENGTH
 
+    # Rolling mins/maxes for normalization
+    mins = local_data[col].rolling(WINDOW_LENGTH).min()
+    maxes = local_data[col].rolling(WINDOW_LENGTH).max()
+
     # Iterate through every sequence (sliding window) in the data
     for i in range(len(data) - WINDOW_LENGTH - right_offset):
         sequence = local_data.iloc[i:i+WINDOW_LENGTH]
-        if model_arch == 'forest':
-            close_diff = sequence['Close'].diff().fillna(0)
-            sequence['Close Diff'] = close_diff
-        sequence = scaler.fit_transform(sequence)
+
+        mi = mins.iloc[i+WINDOW_LENGTH-1]
+        scale = 1 / (maxes.iloc[i+WINDOW_LENGTH-1] - mi)
+
+        # Normalize
+        sequence = pd.concat(
+            [(sequence.drop(columns=keep_cols) - mi) / scale, sequence[keep_cols]],
+            axis=1).to_numpy()
         # sequence = poly_regression_reduction(sequence)
         X.append(sequence)
-        # Get the scaler values needed to scale/revert
-        col_index = np.where(scaler.get_feature_names_out() == col)[0][0]
-        mi, scale = scaler.data_min_[col_index], scaler.scale_[col_index]
-        if label == 'signal':
-            gt_label = labeller(i, mi, scale)
-        elif label == 'price':
-            gt_label = (labeller(i+WINDOW_LENGTH) - mi) * scale
-        elif label == 'price-change':
-            gt_label = labeller(i+WINDOW_LENGTH) * scale
+
+        gt_label = labeller(i, mi, scale)
         y.append(gt_label)
+
         scaler_mins.append(mi)
         scaler_scales.append(scale)
 

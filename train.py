@@ -53,7 +53,7 @@ def prepare_training_data(time_interval: str, label: str, model_arch: str):
             for day in days:
                 day_data = daily_data.get_group(day)
                 ticker_X, ticker_y, mins, scales = prepare_model_data(
-                    day_data, label, 'Close', model_arch)
+                    day_data, label, 'Close')
 
                 X.append(ticker_X)
                 y.append(ticker_y)
@@ -61,7 +61,7 @@ def prepare_training_data(time_interval: str, label: str, model_arch: str):
         elif time_interval == '1d':
             # Just use the whole file as the training set
             ticker_X, ticker_y, mins, scales = prepare_model_data(
-                data, label, 'Close', model_arch)
+                data, label, 'Close')
 
             X.append(ticker_X)
             y.append(ticker_y)
@@ -228,7 +228,7 @@ if __name__ == '__main__':
     parser.add_argument('-t', '--time_interval', type=str, help='time interval data to train on',
                         choices=['1m', '1d'], required=True)
     parser.add_argument('-l', '--label', type=str, help='labels to use for each instance',
-                        choices=['price', 'price-change', 'signal'], required=True)
+                        choices=['price', 'signal'], required=True)
     parser.add_argument('-e', '--error', type=str,
                         help='error (loss) function to use (ignored if classification)')
     args = parser.parse_args()

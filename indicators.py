@@ -1,7 +1,20 @@
-# Price indicators (SMA, EMA, cross, MACD, and stochastic oscillator)
+# Price indicators (percent change, SMA, EMA, cross, MACD, stochastic oscillator, and RSI)
 
 import pandas as pd
+import numpy as np
 
+
+def percent_change(series: pd.Series):
+    """
+    Computes the percent change from previous to the current point in time.
+
+    Args:
+        series (pandas.Series): Series of numerical data to calculate the changes on.
+    
+    Returns:
+        pandas.Series: Series containing the percent changes for each point in time.
+    """
+    return series.diff() / series
 
 def sma(series: pd.Series, size: int):
     """
@@ -79,3 +92,23 @@ def stochastic_oscillator(series: pd.Series, size: int):
     highs = series.rolling(size).max()
     lows = series.rolling(size).min()
     return (series - lows) / (highs - lows)
+
+
+def rsi(series: pd.Series, size: int):
+    """
+    Computes the Relative Strength Index (RSI) for each applicable point in time.
+
+    Args:
+        series (pandas.Series): Series of numerical data to base the RSI on.
+        size (int): Number of days to use in when counting up/down days.
+
+    Returns:
+        pandas.Series: Series containing the RSI at each applicable point in time.
+    """
+    change = percent_change(series)
+    gains, losses = np.maximum(change, 0), np.minimum(change, 0)
+    avg_gains, avg_losses = sma(gains, size), sma(losses, size)
+    rs = avg_gains / np.maximum(np.abs(avg_losses), 1e-7)
+    raw_rsi = 100 - 100 / (1 + rs)
+    smooth_rsi = sma(raw_rsi, size)
+    return smooth_rsi
