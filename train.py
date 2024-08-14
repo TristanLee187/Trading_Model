@@ -210,7 +210,7 @@ def get_random_forest_model():
         max_features=None,
         class_weight='balanced',
         criterion="entropy",
-        min_samples_leaf=16,
+        min_samples_leaf=10,
         oob_score=True,
         random_state=42,
     )
@@ -262,6 +262,7 @@ if __name__ == '__main__':
                 metrics=[F1Score()])
 
         # Train!
+        # early_stopping = EarlyStopping(monitor='val_f1_score', patience=10)
         model.fit(X_train, y_train, epochs=50, batch_size=32,
                   validation_data=(X_val, y_val))
 

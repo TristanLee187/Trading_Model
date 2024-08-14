@@ -94,13 +94,14 @@ def reg_model_eval(model_path: str, model_arch: str, ticker: str, time_interval:
     y_predictions = y_predictions / scaler_scales + scaler_mins
 
     # Calculate various metrics.
+    caption = ''
     # MAE
     mae = np.mean(np.abs(y_gt - y_predictions))
-    print(f"Mean Absolute Error (MAE): {round(mae, 10)}")
+    caption += f"Mean Absolute Error (MAE): {round(mae, 10)}\n"
 
     # MSE
     mse = np.mean(np.power(y_gt - y_predictions, 2))
-    print(f"Mean Squared Error (MSE): {round(mse, 10)}")
+    caption += f"Mean Squared Error (MSE): {round(mse, 10)}\n"
 
     # Percentage of days correctly classified as positive/negative returns.
     X_prices = data['Close'].iloc[WINDOW_LENGTH-1:-1]
@@ -109,7 +110,7 @@ def reg_model_eval(model_path: str, model_arch: str, ticker: str, time_interval:
 
     percent_correct = len(
         [sign for sign in correct_incorrect if sign == 1]) / len(y_gt)
-    print(f"Percent Correctly Classified: {round(percent_correct, 10) * 100}%")
+    caption += f"Percent Correctly Classified: {round(percent_correct, 10) * 100}%"
 
     # Plot the ground truth vs. predictions.
     fig = plt.figure(figsize=(10, 8))
@@ -125,6 +126,9 @@ def reg_model_eval(model_path: str, model_arch: str, ticker: str, time_interval:
     plt.ylabel('Price')
 
     plt.title(f"{ticker} Ground Truth vs. Predicted Price")
+
+    fig.tight_layout(pad=5)
+    fig.text(0.125, 0.01, caption, ha='left')
 
     date_string = str(start_date)
     if time_interval == '1d':

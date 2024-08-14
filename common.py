@@ -140,7 +140,7 @@ def prepare_model_data(data: pd.DataFrame, label: str, col: str):
     # Define the label function based on the label
     if label == 'price':
         def labeller(i, mi, scale):
-            return local_data.iloc[i][col]
+            return (local_data.iloc[i+WINDOW_LENGTH][col] - mi) * scale
     elif label == 'signal':
         def labeller(i, mi, scale):
             return buy_sell_label(local_data, i, col, mi, scale)
@@ -167,7 +167,7 @@ def prepare_model_data(data: pd.DataFrame, label: str, col: str):
 
         # Normalize
         sequence = pd.concat(
-            [(sequence.drop(columns=keep_cols) - mi) / scale, sequence[keep_cols]],
+            [(sequence.drop(columns=keep_cols) - mi) * scale, sequence[keep_cols]],
             axis=1).to_numpy()
         # sequence = poly_regression_reduction(sequence)
         X.append(sequence)
