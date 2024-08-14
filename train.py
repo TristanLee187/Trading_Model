@@ -15,7 +15,7 @@ import joblib
 import argparse
 
 
-def prepare_training_data(time_interval: str, label: str, model_arch: str):
+def prepare_training_data(time_interval: str, label: str):
     """
     Prepare training data (inputs and ground truth labels).
 

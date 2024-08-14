@@ -16,11 +16,10 @@ sp_100_tickers = ['AAPL', 'ABBV', 'ABT', 'ACN', 'ADBE', 'AIG', 'AMD', 'AMGN', 'A
                   'NEE', 'NFLX', 'NKE', 'NVDA', 'ORCL', 'PEP', 'PFE', 'PG', 'PM', 'PYPL', 'QCOM', 'RTX',
                   'SBUX', 'SCHW', 'SO', 'SPG', 'T', 'TGT', 'TMO', 'TMUS', 'TSLA', 'TXN', 'UNH',
                   'UNP', 'UPS', 'USB', 'V', 'VZ', 'WFC', 'WMT', 'XOM']
-mag_7_tickers = ['AAPL', 'AMZN', 'GOOGL', 'META', 'MSFT', 'NVDA', 'TSLA']
 tickers = sp_100_tickers
 
 # Version folder to save models and plots to.
-VERSION = 'testing'
+VERSION = 'final'
 
 # Polynormial degree to use in reduction.
 POLY_DEGREE = 8
@@ -66,8 +65,8 @@ def buy_sell_label(data: pd.DataFrame, index: int, col: str, mi: float, scale: f
         data (pandas.DataFrame): Pandas DataFrame containing (unscaled) data.
         index (int): Index of the starting index of the input sequence.
         col (str): Name of the column for the prices to use.
-        mi (float): Minimum value (computed by a MinMaxScaler), to be used in normalization.
-        scale (float): Scale value (computed by a MinMaxScaler), to be used in normalization.
+        mi (float): Minimum value to be used in normalization.
+        scale (float): Scale value to be used in normalization.
 
     Returns:
         numpy.array: One-hot encoded vector for the signal:
