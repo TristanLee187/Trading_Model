@@ -6,10 +6,10 @@ from common import *
 from sklearn.model_selection import train_test_split
 import tensorflow as tf
 from keras import Model
-from keras.models import Sequential
+from keras.models import Sequential, load_model
 from keras.layers import LSTM, Dense, Input, MultiHeadAttention, Add, LayerNormalization, Permute
 from keras.regularizers import L1L2
-from keras.callbacks import EarlyStopping
+from keras.metrics import F1Score
 from sklearn.ensemble import RandomForestClassifier
 import joblib
 import argparse
@@ -26,7 +26,7 @@ def prepare_training_data(time_interval: str, label: str, model_arch: str):
             "1d": Use the "daily_market_data" data. Sequences span any gaps days.
         label (str): String indicating what value to use as the labels:
             "price": Use the price of the given column.
-            "price-change": Use the change in values of the given column.
+            "signal": Use regression to indicate upward/downward/neither movement.
 
     Returns:
         numpy.array, numpy.array: Two numpy arrays X and y containing the training instances and ground
@@ -111,11 +111,11 @@ def last_layer(label: str):
 
     Returns:
         keras.src.layers: Keras layer to use for the model's output:
-            - "price" or "price-change" (regression): A Dense layer with 1 unit and sigmoid
+            - "price" (regression): A Dense layer with 1 unit and sigmoid
                 activiation.
             - "signal" (classification): A Dense layer with 3 units and softmax activation.
     """
-    if label in ['price', 'price-change']:
+    if label == 'price':
         return Dense(units=1, activation='sigmoid')
     elif label == 'signal':
         return Dense(units=3, activation='softmax')
@@ -152,7 +152,7 @@ def get_transformer_model(shape: tuple[int, int], label: str):
         label (str):  The label type to train on.
 
     Returns:
-        keras.models.Sequential: Sequential model with an LSTM and attention architecture.
+        keras.models.Sequential: Sequential model with an attention and LSTM architecture.
     """
     # Define Transformer block
     def transformer_block(x, num_heads, key_dim, ff_dim_1, ff_dim_2):
@@ -182,7 +182,7 @@ def get_transformer_model(shape: tuple[int, int], label: str):
     ])
     # Apply one more transformer layer
     combined_transformer_layer = transformer_block(
-        concated_layer, num_heads=4, key_dim=64, ff_dim_1=256, ff_dim_2=shape[1])
+        concated_layer, num_heads=4, key_dim=64, ff_dim_1=128, ff_dim_2=shape[1])
     # Use LSTM to pool
     lstm_pooling_layer = LSTM(units=32)(combined_transformer_layer)
     # Output
@@ -231,6 +231,8 @@ if __name__ == '__main__':
                         choices=['price', 'signal'], required=True)
     parser.add_argument('-e', '--error', type=str,
                         help='error (loss) function to use (ignored if classification)')
+    parser.add_argument('-r', '--resume', type=str,
+                        help='if set, path to a model to resume training on (only works for NNs)')
     args = parser.parse_args()
 
     # Prepare training data
@@ -240,27 +242,30 @@ if __name__ == '__main__':
     if args.model in ['LSTM', 'transformer']:
         # Prepare validation data
         X_train, X_val, y_train, y_val = train_test_split(
-            X, y, test_size=0.2, random_state=42)
+            X, y, test_size=0.2, random_state=0)
         # Get appropriate NN architecture
-        if args.model == 'LSTM':
-            model = get_lstm_model(X[0].shape, args.label)
+        if args.resume is not None:
+            model = load_model(args.resume, compile=False)
         else:
-            model = get_transformer_model(X[0].shape, args.label)
+            if args.model == 'LSTM':
+                model = get_lstm_model(X[0].shape, args.label)
+            else:
+                model = get_transformer_model(X[0].shape, args.label)
 
-        # Compile with early stopping
-        if args.label in ['price', 'price-change']:
+        # Compile
+        if args.label == 'price':
             model.compile(optimizer='adam', loss=args.error)
         elif args.label == 'signal':
             model.compile(
-                optimizer='adam', loss=custom_categorical_crossentropy, metrics=['accuracy'])
-
-        early_stopping = EarlyStopping(patience=5, restore_best_weights=True)
+                optimizer='adam',
+                loss=custom_categorical_crossentropy, 
+                metrics=[F1Score()])
 
         # Train!
         model.fit(X_train, y_train, epochs=50, batch_size=32,
-                  validation_data=(X_val, y_val), callbacks=[early_stopping])
+                  validation_data=(X_val, y_val))
 
-        if args.label in ['price', 'price-change']:
+        if args.label == 'price':
             loss_func_str = args.error
         elif args.label == 'signal':
             loss_func_str = 'cce'

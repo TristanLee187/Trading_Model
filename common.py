@@ -55,7 +55,7 @@ WINDOW_LENGTH = 30
 FUTURE_WINDOW_LENGTH = 30
 
 # Slope to use when classifying buy/sell labels.
-buy_sell_slope = 1
+buy_sell_slope = 1.2
 
 
 def buy_sell_label(data: pd.DataFrame, index: int, col: str, mi: float, scale: float):

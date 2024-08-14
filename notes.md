@@ -20,3 +20,8 @@ Third working model (v4): classification (buy, sell, or do nothing), Transformer
 - Make ground truth labels as buy/sell/do nothing using constrained linear regression: for a some day, compute the best fit line for the next WINDOW_LENGTH days, but constrained such that the line goes through the day's price. Label based on that line's slope.
 - The model predicts mostly "do nothing" for the 1 day chart, but predicts more buys/sells for the 1 minute chart. Looks like it's very sensitive to the slope thresholds.
 - Finish training on the S&P 100 companies daily data, results are mixed, the average return is 3.33% using a simple strategy following the signals.
+
+Fourth working model: different features; Random Forests
+- Rework features: add some more (RSI, percent changes) and change normalization scheme (use close price to normalize everything else in a sequence EXCEPT "fixed range" scores: RSI, osciallator, and percent change).
+- Random Forest: just flatten each 2D sequence into 1D, ok results (around 5% average return).
+- Retrain transformer on the new features, pretty good results (5-6% average return).

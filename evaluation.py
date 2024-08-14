@@ -58,7 +58,7 @@ def reg_model_eval(model_path: str, model_arch: str, ticker: str, time_interval:
         time_interval (str): String with the time interval of the model. 
             Should be "1m" or "1d".
         label (str): String with the label used for the model. 
-            Should be "price" or "price-change".
+            Should be "price" or "signal".
         error (str): String with the error (loss) function used by the model.
         start_date (datetime.date): Date for the first date of the time window for the evaluation.
             If time_interval is "1m", then this defines the day to get the 1-minute chart for.
@@ -90,12 +90,8 @@ def reg_model_eval(model_path: str, model_arch: str, ticker: str, time_interval:
     y_predictions = model.predict(X).reshape(len(y_gt))
 
     # Scale the ground truth and predictions back to their original scales
-    if label == 'price':
-        y_gt = y_gt / scaler_scales + scaler_mins
-        y_predictions = y_predictions / scaler_scales + scaler_mins
-    elif label == 'price-change':
-        y_gt = y_gt / scaler_scales
-        y_predictions = y_predictions / scaler_scales
+    y_gt = y_gt / scaler_scales + scaler_mins
+    y_predictions = y_predictions / scaler_scales + scaler_mins
 
     # Calculate various metrics.
     # MAE
@@ -107,12 +103,9 @@ def reg_model_eval(model_path: str, model_arch: str, ticker: str, time_interval:
     print(f"Mean Squared Error (MSE): {round(mse, 10)}")
 
     # Percentage of days correctly classified as positive/negative returns.
-    if label == 'price':
-        X_prices = data['Close'].iloc[WINDOW_LENGTH-1:-1]
-        correct_incorrect = np.sign(
-            (y_gt - X_prices) * (y_predictions - X_prices))
-    elif label == 'price-change':
-        correct_incorrect = np.sign(y_gt * y_predictions)
+    X_prices = data['Close'].iloc[WINDOW_LENGTH-1:-1]
+    correct_incorrect = np.sign(
+        (y_gt - X_prices) * (y_predictions - X_prices))
 
     percent_correct = len(
         [sign for sign in correct_incorrect if sign == 1]) / len(y_gt)
@@ -120,12 +113,8 @@ def reg_model_eval(model_path: str, model_arch: str, ticker: str, time_interval:
 
     # Plot the ground truth vs. predictions.
     fig = plt.figure(figsize=(10, 8))
-    if label == 'price':
-        plt.plot(time_col, y_gt, "k", label="Ground Truth")
-        plt.plot(time_col, y_predictions, "b", label="Predictions")
-    elif label == 'price-change':
-        plt.scatter(time_col, y_gt, c="k", label="Ground Truth")
-        plt.scatter(time_col, y_predictions, c="b", label="Predictions")
+    plt.plot(time_col, y_gt, "k", label="Ground Truth")
+    plt.plot(time_col, y_predictions, "b", label="Predictions")
     plt.legend()
 
     x_mapper = {
@@ -133,12 +122,9 @@ def reg_model_eval(model_path: str, model_arch: str, ticker: str, time_interval:
     }
     plt.xlabel(x_mapper[time_interval])
 
-    y_mapper = {
-        'price': "Price", 'price-change': "Price Change"
-    }
-    plt.ylabel(y_mapper[label])
+    plt.ylabel('Price')
 
-    plt.title(f"{ticker} Ground Truth vs. Predicted {y_mapper[label]}")
+    plt.title(f"{ticker} Ground Truth vs. Predicted Price")
 
     date_string = str(start_date)
     if time_interval == '1d':
@@ -372,7 +358,7 @@ if __name__ == '__main__':
 
     # Get the model location for NNs
     if args.model in ['LSTM', 'transformer']:
-        if args.label in ['price', 'price-change']:
+        if args.label == 'price':
             loss_func_str = args.error
         elif args.label == 'signal':
             loss_func_str = 'cce'
@@ -395,7 +381,7 @@ if __name__ == '__main__':
     elif args.time_interval == '1m':
         start, end = date(2024, 8, 5), None
 
-    if args.label in ['price', 'price-change']:
+    if args.label == 'price':
         if args.ticker == 'all':
             raise ValueError(
                 '"all" ticker choice is only supported for buy/sell signals')
