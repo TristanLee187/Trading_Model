@@ -74,10 +74,11 @@ def buy_sell_label(data: pd.DataFrame, index: int, col: str, mi: float, scale: f
             - Buy: [1,0,0]
             - Sell: [0,1,0]
     """
+    wl, fwl = WINDOW_LENGTH, FUTURE_WINDOW_LENGTH
     # Throw exception if out of bounds
-    if index + WINDOW_LENGTH + FUTURE_WINDOW_LENGTH > len(data):
+    if index + wl + fwl > len(data):
         raise IndexError(
-            f"Index {index} and window length {WINDOW_LENGTH} are out of bounds for data of length {len(data)}")
+            f"Index {index} and window length {wl} are out of bounds for data of length {len(data)}")
 
     # Calculate the parameters of the best fit line (constrained such that it passes through
     # the most recent known price)
@@ -93,16 +94,16 @@ def buy_sell_label(data: pd.DataFrame, index: int, col: str, mi: float, scale: f
         return res.x
 
     # Choose a label depending on the slope of the constrained regression line using the next
-    # WINDOW_LENGTH time steps.
+    # FUTURE_WINDOW_LENGTH time steps.
     # [1,0,0] for do nothing, [0,1,0] for buy, [0,0,1] for sell.
-    today_price = (data[col].iloc[index+WINDOW_LENGTH-1] - mi) * scale
+    today_price = (data[col].iloc[index+wl-1] - mi) * scale
     next_prices = (
-        data[col].iloc[index+WINDOW_LENGTH: index+WINDOW_LENGTH+FUTURE_WINDOW_LENGTH] - mi) * scale
+        data[col].iloc[index+wl: index+wl+fwl] - mi) * scale
     slope, intercept = best_fit_line_through_today_price(
         today_price, next_prices)
-    if slope <= -buy_sell_slope/FUTURE_WINDOW_LENGTH:
+    if slope <= -buy_sell_slope/fwl:
         return np.array([0, 0, 1])
-    elif -buy_sell_slope/FUTURE_WINDOW_LENGTH < slope < buy_sell_slope/FUTURE_WINDOW_LENGTH:
+    elif -buy_sell_slope/fwl < slope < buy_sell_slope/fwl:
         return np.array([1, 0, 0])
     else:
         return np.array([0, 1, 0])
@@ -119,27 +120,29 @@ keep_cols = ['Percent_Change', 'Stochastic_Oscillator', 'RSI']
 def prepare_model_data(data: pd.DataFrame, label: str, col: str):
     """
     Prepare input instances and ground truth labels (X and y) given raw CSV data, using the defined
-        WINDOW_LENGTH as the sequence length, and normalizing each sequence with a MinMaxScaler.
+        WINDOW_LENGTH as the sequence length, and normalizing each sequence using the min and max values
+        in the given column.
 
     Args:
         data (pandas.DataFrame): Pandas DataFrame containing the raw CSV data.
         label (str): String indicating what value to use as the labels:
             "price": Use the price of the given column.
             "signal": Use regression to indicate upward/downward/neither movement.
-        col (str): Column name to use in creating the labels.
+        col (str): Column name to base creating the labels off of.
 
     Returns:
         numpy.array, numpy.array: Two numpy arrays X and y containing the training instances and ground
-            truth labels, respectively. X will have shape (len(data) - WINDOW_LENGTH, WINDOW_LENGTH, NUM_FEATURES),
-            while y will have shape (len(data) - WINDOW_LENGTH).
+            truth labels, respectively.
             Each training instance of X is normalized locally using its own min/max col value.
     """
+    wl, fwl = WINDOW_LENGTH, FUTURE_WINDOW_LENGTH
+    # Drop ignored columns
     local_data = data.drop(columns=ignore_cols, errors='ignore')
 
     # Define the label function based on the label
     if label == 'price':
         def labeller(i, mi, scale):
-            return (local_data.iloc[i+WINDOW_LENGTH][col] - mi) * scale
+            return (local_data.iloc[i+wl][col] - mi) * scale
     elif label == 'signal':
         def labeller(i, mi, scale):
             return buy_sell_label(local_data, i, col, mi, scale)
@@ -151,18 +154,18 @@ def prepare_model_data(data: pd.DataFrame, label: str, col: str):
     if label == 'price':
         right_offset = 0
     elif label == 'signal':
-        right_offset = FUTURE_WINDOW_LENGTH
+        right_offset = fwl
 
     # Rolling mins/maxes for normalization
-    mins = local_data[col].rolling(WINDOW_LENGTH).min()
-    maxes = local_data[col].rolling(WINDOW_LENGTH).max()
+    mins = local_data[col].rolling(wl).min()
+    maxes = local_data[col].rolling(wl).max()
 
     # Iterate through every sequence (sliding window) in the data
-    for i in range(len(data) - WINDOW_LENGTH - right_offset):
-        sequence = local_data.iloc[i:i+WINDOW_LENGTH]
+    for i in range(len(data) - wl - right_offset):
+        sequence = local_data.iloc[i:i+wl]
 
-        mi = mins.iloc[i+WINDOW_LENGTH-1]
-        scale = 1 / (maxes.iloc[i+WINDOW_LENGTH-1] - mi)
+        mi = mins.iloc[i+wl-1]
+        scale = 1 / (maxes.iloc[i+wl-1] - mi)
 
         # Normalize
         sequence = pd.concat(

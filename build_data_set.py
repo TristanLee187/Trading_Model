@@ -73,7 +73,6 @@ def build_daily_dataset(ticker: str, start_date: date, end_date: date):
     # Remove the "Date" index.
     data.reset_index(drop=True, inplace=True)
 
-    # Return the DataFrame.
     return data
 
 
@@ -133,7 +132,6 @@ def build_minute_dataset(ticker: str, day: date):
     # Remove the "Date" index.
     data.reset_index(drop=True, inplace=True)
 
-    # Return the DataFrame.
     return data
 
 
@@ -154,7 +152,7 @@ if __name__ == '__main__':
             # Init list of DataFrames to merge together
             dfs = []
 
-            # Start from 2024-06-27 and end on 2024-07-25
+            # Start from 2024-07-08 and end on 2024-08-02
             s = date(2024, 7, 8)
             e = date(2024, 8, 2)
 

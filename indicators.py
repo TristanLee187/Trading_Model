@@ -6,7 +6,7 @@ import numpy as np
 
 def percent_change(series: pd.Series):
     """
-    Computes the percent change from previous to the current point in time.
+    Computes the percent change from the previous to the current point in time.
 
     Args:
         series (pandas.Series): Series of numerical data to calculate the changes on.
@@ -27,7 +27,7 @@ def sma(series: pd.Series, size: int):
     Returns:
         pandas.Series: Series containing the SMA at each applicable point in time.
     """
-    return series.rolling(size).sum() / size
+    return series.rolling(size).mean()
 
 
 def cross(series: pd.Series, size1: int, size2: int):

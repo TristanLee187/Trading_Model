@@ -23,10 +23,10 @@ def prepare_training_data(time_interval: str, label: str):
         time_interval (str): String defining the time interval data to use in training:
             "1m": Use the "miniute_market_data" data. Sequences are limited to within a day
                 (they do not span multiple days).
-            "1d": Use the "daily_market_data" data. Sequences span any gaps days.
+            "1d": Use the "daily_market_data" data. Sequences span any gaps in days (weekends, holidays, etc.).
         label (str): String indicating what value to use as the labels:
             "price": Use the price of the given column.
-            "signal": Use regression to indicate upward/downward/neither movement.
+            "signal": Use regression to indicate upward/downward/neither movement in following time points.
 
     Returns:
         numpy.array, numpy.array: Two numpy arrays X and y containing the training instances and ground
@@ -43,6 +43,7 @@ def prepare_training_data(time_interval: str, label: str):
 
     tickers_df_grouped = tickers_df.groupby(by=['Ticker'])
 
+    # Generate data for each ticker
     for ticker in tickers:
         data = tickers_df_grouped.get_group((ticker,))
 
@@ -59,7 +60,7 @@ def prepare_training_data(time_interval: str, label: str):
                 y.append(ticker_y)
 
         elif time_interval == '1d':
-            # Just use the whole file as the training set
+            # Just use the ticker's whole file data as a contiguous training set
             ticker_X, ticker_y, mins, scales = prepare_model_data(
                 data, label, 'Close')
 
@@ -80,8 +81,8 @@ def custom_categorical_crossentropy(y_true, y_pred):
     penalize different classificiations differently.
 
     Args:
-        y_true (np.array)
-        y_pred (np.array)
+        y_true (np.array): Ground truth one-hot encoding vector.
+        y_pred (np.array): Prediction one-hot encoding vector.
 
     Returns:
         function with arguments (np.array, np.array): Function that computes the loss w.r.t.
@@ -110,9 +111,8 @@ def last_layer(label: str):
         label (str): The label type to train on.
 
     Returns:
-        keras.src.layers: Keras layer to use for the model's output:
-            - "price" (regression): A Dense layer with 1 unit and sigmoid
-                activiation.
+        keras.layers.Layer: Keras layer to use for the model's output:
+            - "price" (regression): A Dense layer with 1 unit and sigmoid activiation.
             - "signal" (classification): A Dense layer with 3 units and softmax activation.
     """
     if label == 'price':
@@ -145,14 +145,14 @@ def get_lstm_model(shape: tuple[int, int], label: str):
 
 def get_transformer_model(shape: tuple[int, int], label: str):
     """
-    Define an LSTM and attention-based model..
+    Define a transformer and LSTM based architecture.
 
     Args:
         shape (tuple[int, int]): shape of each input instance.
         label (str):  The label type to train on.
 
     Returns:
-        keras.models.Sequential: Sequential model with an attention and LSTM architecture.
+        keras.Model: Model with an transformer and LSTM architecture.
     """
     # Define Transformer block
     def transformer_block(x, num_heads, key_dim, ff_dim_1, ff_dim_2):
@@ -230,7 +230,7 @@ if __name__ == '__main__':
     parser.add_argument('-l', '--label', type=str, help='labels to use for each instance',
                         choices=['price', 'signal'], required=True)
     parser.add_argument('-e', '--error', type=str,
-                        help='error (loss) function to use (ignored if classification)')
+                        help='error (loss) function to use (required for regression, ignored if classification)')
     parser.add_argument('-r', '--resume', type=str,
                         help='if set, path to a model to resume training on (only works for NNs)')
     args = parser.parse_args()
@@ -246,11 +246,10 @@ if __name__ == '__main__':
         # Get appropriate NN architecture
         if args.resume is not None:
             model = load_model(args.resume, compile=False)
+        elif args.model == 'LSTM':
+            model = get_lstm_model(X[0].shape, args.label)
         else:
-            if args.model == 'LSTM':
-                model = get_lstm_model(X[0].shape, args.label)
-            else:
-                model = get_transformer_model(X[0].shape, args.label)
+            model = get_transformer_model(X[0].shape, args.label)
 
         # Compile
         if args.label == 'price':
@@ -262,10 +261,10 @@ if __name__ == '__main__':
                 metrics=[F1Score()])
 
         # Train!
-        # early_stopping = EarlyStopping(monitor='val_f1_score', patience=10)
         model.fit(X_train, y_train, epochs=50, batch_size=32,
                   validation_data=(X_val, y_val))
-
+        
+        # Save the model
         if args.label == 'price':
             loss_func_str = args.error
         elif args.label == 'signal':
@@ -275,7 +274,6 @@ if __name__ == '__main__':
             VERSION, args.model, args.time_interval, args.label, loss_func_str
         )
 
-        # Save the model
         model.save(f'{tag}_model.keras')
 
     elif args.model == "forest":
@@ -290,9 +288,10 @@ if __name__ == '__main__':
 
         # Train!
         model = model.fit(X, y)
-
+        
+        # Save the model
         tag = './models/{}/{}_{}_close-{}'.format(
             VERSION, args.model, args.time_interval, args.label
         )
-        # Save the model
+
         joblib.dump(model, f'{tag}_model.pkl')

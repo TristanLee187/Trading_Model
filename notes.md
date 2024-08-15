@@ -24,4 +24,4 @@ Third working model (v4): classification (buy, sell, or do nothing), Transformer
 Fourth working model: different features; Random Forests
 - Rework features: add some more (RSI, percent changes) and change normalization scheme (use close price to normalize everything else in a sequence EXCEPT "fixed range" scores: RSI, osciallator, and percent change).
 - Random Forest: just flatten each 2D sequence into 1D, ok results (around 5% average return).
-- Retrain transformer on the new features, pretty good results (5-6% average return).
+- Retrain transformer on the new features, ok results (5-6% average return).
