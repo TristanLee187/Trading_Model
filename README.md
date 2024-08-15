@@ -24,14 +24,16 @@ Train a Model
 
 optional arguments:
   -h, --help            show this help message and exit
-  -m {LSTM,transformer,forest}, --model {LSTM,transformer}
-                        model architecture to use
+  -m {LSTM,transformer,forest}, --model {LSTM,transformer,forest}
+                        model type/architecture to use
   -t {1m,1d}, --time_interval {1m,1d}
                         time interval data to train on
-  -l {price,signal}, --label {price,price-change,signal}
+  -l {price,signal}, --label {price,signal}
                         labels to use for each instance
   -e ERROR, --error ERROR
-                        error (loss) function to use (ignored if classification)
+                        error (loss) function to use (required for regression, ignored if classification)
+  -r RESUME, --resume RESUME
+                        if set, path to a model to resume training on (only works for NNs)
 ```
 Note that though the output says the arguments are optional, most are actually required.
 
