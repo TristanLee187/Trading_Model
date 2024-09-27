@@ -8,6 +8,7 @@ import tensorflow as tf
 from keras import Model
 from keras.models import Sequential, load_model
 from keras.layers import LSTM, Dense, Input, MultiHeadAttention, Add, LayerNormalization, Permute
+from keras_nlp.layers import SinePositionEncoding
 from keras.regularizers import L1L2
 from keras.metrics import F1Score
 from sklearn.ensemble import RandomForestClassifier
@@ -154,11 +155,12 @@ def get_transformer_model(shape: tuple[int, int], label: str):
     Returns:
         keras.Model: Model with an transformer and LSTM architecture.
     """
-    # Define Transformer block
+    # Transformer block
     def transformer_block(x, num_heads, key_dim, ff_dim_1, ff_dim_2):
+        x = Add()([x, SinePositionEncoding()(x)])
         attn_layer = MultiHeadAttention(
             num_heads=num_heads, key_dim=key_dim,
-            dropout=0.1, kernel_regularizer=L1L2(1e-2, 1e-2), bias_regularizer=L1L2(1e-2, 1e-2))(x, x)
+            dropout=0.2, kernel_regularizer=L1L2(1e-2, 1e-2), bias_regularizer=L1L2(1e-2, 1e-2))(x, x)
         x = Add()([x, attn_layer])
         x = LayerNormalization(epsilon=1e-6)(x)
         ff = Dense(ff_dim_2, activation='sigmoid')(
@@ -167,22 +169,29 @@ def get_transformer_model(shape: tuple[int, int], label: str):
         x = LayerNormalization(epsilon=1e-6)(x)
         return x
 
+    # Stack of Transformer blocks
+    def transformer_stack(x, num_heads, key_dim, ff_dim_1, ff_dim_2, num_blocks):
+        for _ in range(num_blocks):
+            x = transformer_block(x, num_heads=num_heads, key_dim=key_dim, 
+                                  ff_dim_1=ff_dim_1, ff_dim_2=ff_dim_2)
+        return x
+
     # Define the Transformer model
     # Get inputs as both temporal and feature sequences
     input_layer = Input(shape=shape)
     transposed_input_layer = Permute((2, 1))(input_layer)
-    # Apply transformers to both of them
-    temporal_transformer_layer = transformer_block(
-        input_layer, num_heads=4, key_dim=64, ff_dim_1=128, ff_dim_2=shape[1])
-    feature_transformer_layer = transformer_block(
-        transposed_input_layer, num_heads=4, key_dim=64, ff_dim_1=128, ff_dim_2=shape[0])
+    # Apply transformer stacks to both of them
+    temporal_transformer_layer = transformer_stack(
+        input_layer, num_heads=4, key_dim=32, ff_dim_1=64, ff_dim_2=shape[1], num_blocks=8)
+    feature_transformer_layer = transformer_stack(
+        transposed_input_layer, num_heads=4, key_dim=32, ff_dim_1=64, ff_dim_2=shape[0], num_blocks=8)
     # Concatenate them together
     concated_layer = Add()([
         temporal_transformer_layer, Permute((2, 1))(feature_transformer_layer)
     ])
-    # Apply one more transformer layer
-    combined_transformer_layer = transformer_block(
-        concated_layer, num_heads=4, key_dim=64, ff_dim_1=128, ff_dim_2=shape[1])
+    # Apply transformer stacks to the concatenation
+    combined_transformer_layer = transformer_stack(
+        concated_layer, num_heads=4, key_dim=64, ff_dim_1=128, ff_dim_2=shape[1], num_blocks=8)
     # Use LSTM to pool
     lstm_pooling_layer = LSTM(units=32)(combined_transformer_layer)
     # Output
@@ -227,6 +236,7 @@ if __name__ == '__main__':
                         choices=['LSTM', 'transformer', 'forest'], required=True)
     parser.add_argument('-t', '--time_interval', type=str, help='time interval data to train on',
                         choices=['1m', '1d'], required=True)
+    parser.add_argument('-d', '--train_data', type=str, help='if set, path to file containing X and y sequence data')
     parser.add_argument('-l', '--label', type=str, help='labels to use for each instance',
                         choices=['price', 'signal'], required=True)
     parser.add_argument('-e', '--error', type=str,
@@ -236,8 +246,13 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # Prepare training data
-    X, y = prepare_training_data(
-        args.time_interval, args.label, args.model)
+    if args.train_data:
+        npzfile = np.load(args.train_data)
+        X, y = npzfile['X'], npzfile['y']
+    else:
+        X, y = prepare_training_data(
+            args.time_interval, args.label)
+        np.savez(f'./models/{VERSION}/{args.label}_X_and_y.npz', X=X, y=y)
 
     if args.model in ['LSTM', 'transformer']:
         # Prepare validation data

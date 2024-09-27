@@ -4,15 +4,15 @@ import pandas as pd
 import numpy as np
 
 
-def percent_change(series: pd.Series):
+def proportional_change(series: pd.Series):
     """
-    Computes the percent change from the previous to the current point in time.
+    Computes the change from the previous to the current point in time, as a proportion of the previous point.
 
     Args:
         series (pandas.Series): Series of numerical data to calculate the changes on.
     
     Returns:
-        pandas.Series: Series containing the percent changes for each point in time.
+        pandas.Series: Series containing the changes for each point in time.
     """
     return series.diff() / series
 
@@ -105,7 +105,7 @@ def rsi(series: pd.Series, size: int):
     Returns:
         pandas.Series: Series containing the RSI at each applicable point in time.
     """
-    change = percent_change(series)
+    change = proportional_change(series)
     gains, losses = np.maximum(change, 0), np.minimum(change, 0)
     avg_gains, avg_losses = sma(gains, size), sma(losses, size)
     rs = avg_gains / np.maximum(np.abs(avg_losses), 1e-7)

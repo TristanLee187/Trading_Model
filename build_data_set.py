@@ -41,7 +41,7 @@ def build_daily_dataset(ticker: str, start_date: date, end_date: date):
     data['Day'] = data.index.day
 
     # Calculate percent changes.
-    data['Percent_Change'] = ind.percent_change(data['Close'])
+    data['Percent_Change'] = ind.proportional_change(data['Close'])
 
     # Use certain amounts of time to define SMAs and EMAs.
     time_periods = [5, 20, 50, 200]
@@ -103,7 +103,7 @@ def build_minute_dataset(ticker: str, day: date):
     data['Minute'] = 60 * data.index.hour + data.index.minute
 
     # Calculate percent changes.
-    data['Percent_Change'] = ind.percent_change(data['Close'])
+    data['Percent_Change'] = ind.proportional_change(data['Close'])
 
     # Use certain amounts of time to define SMAs and EMAs
     time_periods = [5, 20, 50]

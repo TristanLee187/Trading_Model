@@ -16,45 +16,20 @@ sp_100_tickers = ['AAPL', 'ABBV', 'ABT', 'ACN', 'ADBE', 'AIG', 'AMD', 'AMGN', 'A
                   'NEE', 'NFLX', 'NKE', 'NVDA', 'ORCL', 'PEP', 'PFE', 'PG', 'PM', 'PYPL', 'QCOM', 'RTX',
                   'SBUX', 'SCHW', 'SO', 'SPG', 'T', 'TGT', 'TMO', 'TMUS', 'TSLA', 'TXN', 'UNH',
                   'UNP', 'UPS', 'USB', 'V', 'VZ', 'WFC', 'WMT', 'XOM']
-tickers = sp_100_tickers
+mag_7_tickers = ['AAPL', 'AMZN', 'GOOGL', 'META', 'MSFT', 'NVDA', 'TSLA']
+tickers = mag_7_tickers
 
 # Version folder to save models and plots to.
-VERSION = 'final'
-
-# Polynormial degree to use in reduction.
-POLY_DEGREE = 8
-
-
-def poly_regression_reduction(sequence: np.ndarray):
-    """
-    Reduces a sequence to its best-fit polynomial features.
-
-    Args:
-        sequence (numpy.array): 2D sequence of shape (num_instances, num_features).
-
-    Returns:
-        numpy.array: Array of shape (num_instances, num_features), where each feature is
-            reduced to its best-fit polynomial.
-    """
-    num_instances, num_features = sequence.shape
-    reduced_sequence = np.zeros(sequence.shape)
-    for f in range(num_features):
-        poly_params = np.polyfit(
-            np.arange(num_instances), sequence[:, f], POLY_DEGREE)
-        fit_line = [np.poly1d(poly_params)(i)
-                    for i in np.arange(num_instances)]
-        reduced_sequence[:, f] = fit_line
-    return reduced_sequence
-
+VERSION = 'v7'
 
 # Number of time points to use in defining sequence data.
 WINDOW_LENGTH = 30
 
 # Number of time points to use for defibing buy/sell labels (for constrained linear regression).
-FUTURE_WINDOW_LENGTH = 30
+FUTURE_WINDOW_LENGTH = 15
 
 # Slope to use when classifying buy/sell labels.
-buy_sell_slope = 1.2
+buy_sell_slope = 1
 
 
 def buy_sell_label(data: pd.DataFrame, index: int, col: str, mi: float, scale: float):
@@ -114,7 +89,7 @@ ignore_cols = ['Open', 'High', 'Low',
                'Adj Close', 'Year', 'Month', 'Day', 'Ticker']
 
 # Columns to not normalize (using the closing price) for the training data.
-keep_cols = ['Percent_Change', 'Stochastic_Oscillator', 'RSI']
+keep_cols = ['Proportional_Change', 'Stochastic_Oscillator', 'RSI', 'Volume']
 
 
 def prepare_model_data(data: pd.DataFrame, label: str, col: str):
@@ -167,11 +142,17 @@ def prepare_model_data(data: pd.DataFrame, label: str, col: str):
         mi = mins.iloc[i+wl-1]
         scale = 1 / (maxes.iloc[i+wl-1] - mi)
 
-        # Normalize
+        # Get columns we don't want to translate (crosses, MACD)
+        no_translate_cols = [col for col in sequence.columns if 'Cross' in col] + ['MACD']
+
+        # Normalize by translation and scaling (moving averages)
+        sequence_1 = (sequence.drop(columns=keep_cols + no_translate_cols) - mi) * scale
+        # Normalize by just scaling (divergence)
+        sequence_2 = sequence[no_translate_cols] * scale
         sequence = pd.concat(
-            [(sequence.drop(columns=keep_cols) - mi) * scale, sequence[keep_cols]],
+            [sequence_1, sequence_2, sequence[keep_cols]],
             axis=1).to_numpy()
-        # sequence = poly_regression_reduction(sequence)
+
         X.append(sequence)
 
         gt_label = labeller(i, mi, scale)
