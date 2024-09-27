@@ -10,7 +10,7 @@ from keras.models import Sequential, load_model
 from keras.layers import LSTM, Dense, Input, MultiHeadAttention, Add, LayerNormalization, Permute
 from keras_nlp.layers import SinePositionEncoding
 from keras.regularizers import L1L2
-from keras.metrics import Accuracy
+from keras.metrics import AUC
 from sklearn.ensemble import RandomForestClassifier
 import joblib
 import argparse
@@ -46,7 +46,7 @@ def prepare_training_data(time_interval: str, label: str):
 
     # Generate data for each ticker
     for ticker in tickers:
-        data = tickers_df_grouped.get_group((ticker,))
+        data = tickers_df_grouped.get_group(ticker)
 
         if time_interval == '1m':
             # Break down each file into its component days
@@ -96,6 +96,7 @@ def custom_categorical_crossentropy(y_true, y_pred):
         [2.0, 10.0, 0.0]
     ])
 
+    y_true = tf.cast(y_true, tf.float32)
     y_pred = tf.clip_by_value(y_pred, 1e-7, 1.0)
     ce_loss = -tf.reduce_sum(y_true * tf.math.log(y_pred), axis=-1)
     weights_tensor = tf.reduce_sum(tf.expand_dims(
@@ -273,7 +274,7 @@ if __name__ == '__main__':
             model.compile(
                 optimizer='adam',
                 loss=custom_categorical_crossentropy, 
-                metrics=[Accuracy()])
+                metrics=[AUC(curve="PR")])
 
         # Train!
         model.fit(X_train, y_train, epochs=50, batch_size=32,
