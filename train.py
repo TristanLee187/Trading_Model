@@ -10,7 +10,7 @@ from keras.models import Sequential, load_model
 from keras.layers import LSTM, Dense, Input, MultiHeadAttention, Add, LayerNormalization, Permute
 from keras_nlp.layers import SinePositionEncoding
 from keras.regularizers import L1L2
-from keras.metrics import F1Score
+from keras.metrics import Accuracy
 from sklearn.ensemble import RandomForestClassifier
 import joblib
 import argparse
@@ -122,7 +122,7 @@ def last_layer(label: str):
         return Dense(units=3, activation='softmax')
 
 
-def get_lstm_model(shape: tuple[int, int], label: str):
+def get_lstm_model(shape: tuple, label: str):
     """
     Define an LSTM model.
 
@@ -144,7 +144,7 @@ def get_lstm_model(shape: tuple[int, int], label: str):
     return model
 
 
-def get_transformer_model(shape: tuple[int, int], label: str):
+def get_transformer_model(shape: tuple, label: str):
     """
     Define a transformer and LSTM based architecture.
 
@@ -273,7 +273,7 @@ if __name__ == '__main__':
             model.compile(
                 optimizer='adam',
                 loss=custom_categorical_crossentropy, 
-                metrics=[F1Score()])
+                metrics=[Accuracy()])
 
         # Train!
         model.fit(X_train, y_train, epochs=50, batch_size=32,
