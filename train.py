@@ -7,7 +7,7 @@ from sklearn.model_selection import train_test_split
 import tensorflow as tf
 from keras import Model
 from keras.models import Sequential, load_model
-from keras.layers import LSTM, Dense, Input, MultiHeadAttention, Add, LayerNormalization, Permute
+from keras.layers import LSTM, Dense, Input, MultiHeadAttention, Add, LayerNormalization, Permute, Concatenate, GlobalAveragePooling1D
 from keras_nlp.layers import SinePositionEncoding
 from keras.regularizers import L1L2
 from keras.metrics import AUC
@@ -161,11 +161,11 @@ def get_transformer_model(shape: tuple, label: str):
         x = Add()([x, SinePositionEncoding()(x)])
         attn_layer = MultiHeadAttention(
             num_heads=num_heads, key_dim=key_dim,
-            dropout=0.2, kernel_regularizer=L1L2(1e-2, 1e-2), bias_regularizer=L1L2(1e-2, 1e-2))(x, x)
+            dropout=0.1)(x, x)
         x = Add()([x, attn_layer])
         x = LayerNormalization(epsilon=1e-6)(x)
-        ff = Dense(ff_dim_2, activation='sigmoid')(
-            Dense(ff_dim_1, activation='sigmoid')(x))
+        ff = Dense(ff_dim_2, activation='relu')(
+            Dense(ff_dim_1, activation='relu')(x))
         x = Add()([x, ff])
         x = LayerNormalization(epsilon=1e-6)(x)
         return x
@@ -183,20 +183,20 @@ def get_transformer_model(shape: tuple, label: str):
     transposed_input_layer = Permute((2, 1))(input_layer)
     # Apply transformer stacks to both of them
     temporal_transformer_layer = transformer_stack(
-        input_layer, num_heads=4, key_dim=32, ff_dim_1=64, ff_dim_2=shape[1], num_blocks=8)
+        input_layer, num_heads=4, key_dim=4, ff_dim_1=64, ff_dim_2=shape[1], num_blocks=8)
     feature_transformer_layer = transformer_stack(
-        transposed_input_layer, num_heads=4, key_dim=32, ff_dim_1=64, ff_dim_2=shape[0], num_blocks=8)
+        transposed_input_layer, num_heads=6, key_dim=6, ff_dim_1=128, ff_dim_2=shape[0], num_blocks=8)
     # Concatenate them together
-    concated_layer = Add()([
+    concated_layer = Concatenate()([
         temporal_transformer_layer, Permute((2, 1))(feature_transformer_layer)
     ])
     # Apply transformer stacks to the concatenation
     combined_transformer_layer = transformer_stack(
-        concated_layer, num_heads=4, key_dim=64, ff_dim_1=128, ff_dim_2=shape[1], num_blocks=8)
-    # Use LSTM to pool
-    lstm_pooling_layer = LSTM(units=32)(combined_transformer_layer)
+        concated_layer, num_heads=6, key_dim=6, ff_dim_1=128, ff_dim_2=2*shape[1], num_blocks=8)
+    # Pool
+    pooling_layer = GlobalAveragePooling1D()(combined_transformer_layer)
     # Output
-    dense_layer = Dense(units=32, activation='sigmoid')(lstm_pooling_layer)
+    dense_layer = Dense(units=128, activation='relu')(pooling_layer)
     output_layer = last_layer(label)(dense_layer)
     model = Model(inputs=input_layer, outputs=output_layer)
 
@@ -244,6 +244,8 @@ if __name__ == '__main__':
                         help='error (loss) function to use (required for regression, ignored if classification)')
     parser.add_argument('-r', '--resume', type=str,
                         help='if set, path to a model to resume training on (only works for NNs)')
+    parser.add_argument('-p', '--epochs', type=int,
+                        help='number of training epochs for the NN models (defaults to 20)')
     args = parser.parse_args()
 
     # Prepare training data
@@ -277,7 +279,7 @@ if __name__ == '__main__':
                 metrics=[AUC(curve="PR")])
 
         # Train!
-        model.fit(X_train, y_train, epochs=50, batch_size=32,
+        model.fit(X_train, y_train, epochs=args.epochs, batch_size=32,
                   validation_data=(X_val, y_val))
         
         # Save the model
