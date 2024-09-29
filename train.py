@@ -9,7 +9,8 @@ from keras import Model
 from keras.models import Sequential, load_model
 from keras.layers import LSTM, Dense, Input, MultiHeadAttention, Add, LayerNormalization, Permute, Concatenate, GlobalAveragePooling1D
 from keras_nlp.layers import SinePositionEncoding
-from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.optimizers import RMSprop
+from keras.callbacks import ReduceLROnPlateau
 from keras.metrics import AUC
 from sklearn.ensemble import RandomForestClassifier
 import joblib
@@ -274,13 +275,14 @@ if __name__ == '__main__':
             model.compile(optimizer='adam', loss=args.error)
         elif args.label == 'signal':
             model.compile(
-                optimizer=Adam(learning_rate=0.01, beta_1=0.85, beta_2=0.98),
+                optimizer=RMSprop(learning_rate=0.01),
                 loss=custom_categorical_crossentropy, 
                 metrics=[AUC(curve="PR")])
 
         # Train!
+        lr_scheduler = ReduceLROnPlateau(monitor='loss', factor=0.5, patience=3, min_lr = 1e-7)
         model.fit(X_train, y_train, epochs=args.epochs, batch_size=32,
-                  validation_data=(X_val, y_val))
+                  validation_data=(X_val, y_val), callbacks=[lr_scheduler])
         
         # Save the model
         if args.label == 'price':
@@ -292,7 +294,7 @@ if __name__ == '__main__':
             VERSION, args.model, args.time_interval, args.label, loss_func_str
         )
 
-        model.save(f'{tag}_model', save_format='tf')
+        model.save(f'{tag}_model.h5')
 
     elif args.model == "forest":
         model = get_random_forest_model()
