@@ -9,7 +9,7 @@ from keras import Model
 from keras.models import Sequential, load_model
 from keras.layers import LSTM, Dense, Input, MultiHeadAttention, Add, LayerNormalization, Permute, Concatenate, GlobalAveragePooling1D
 from keras_nlp.layers import SinePositionEncoding
-from keras.regularizers import L1L2
+from tensorflow.keras.optimizers import Adam
 from keras.metrics import AUC
 from sklearn.ensemble import RandomForestClassifier
 import joblib
@@ -274,7 +274,7 @@ if __name__ == '__main__':
             model.compile(optimizer='adam', loss=args.error)
         elif args.label == 'signal':
             model.compile(
-                optimizer='adam',
+                optimizer=Adam(learning_rate=0.01, beta_1=0.85, beta_2=0.98),
                 loss=custom_categorical_crossentropy, 
                 metrics=[AUC(curve="PR")])
 
@@ -292,7 +292,7 @@ if __name__ == '__main__':
             VERSION, args.model, args.time_interval, args.label, loss_func_str
         )
 
-        model.save(f'{tag}_model.keras')
+        model.save(f'{tag}_model', save_format='tf')
 
     elif args.model == "forest":
         model = get_random_forest_model()
