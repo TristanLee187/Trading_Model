@@ -5,6 +5,8 @@ import pandas as pd
 from common import *
 from build_data_set import build_daily_dataset, build_minute_dataset
 from keras.models import load_model
+from keras_nlp.layers import SinePositionEncoding
+from keras.utils import custom_object_scope
 from datetime import date, timedelta
 import matplotlib.pyplot as plt
 import joblib
@@ -84,7 +86,8 @@ def reg_model_eval(model_path: str, model_arch: str, ticker: str, time_interval:
 
     # Predict
     if model_arch in ['LSTM', 'transformer']:
-        model = load_model(model_path, compile=False)
+        with custom_object_scope({'SinePositionEncoding': SinePositionEncoding}):
+            model = load_model(model_path, compile=False)
     elif model_arch == 'forest':
         model = joblib.load(model_path)
         X = X.reshape(X.shape[0], -1)
@@ -205,7 +208,8 @@ def all_tickers_class_model_eval(model_path: str, model_arch: str, time_interval
     performance_output = ''
 
     if model_arch in ['LSTM', 'transformer']:
-        model = load_model(model_path, compile=False)
+        with custom_object_scope({'SinePositionEncoding': SinePositionEncoding}):
+            model = load_model(model_path, compile=False)
     elif model_arch == 'forest':
         model = joblib.load(model_path)
 
@@ -289,7 +293,8 @@ def ticker_class_model_eval(model_path: str, model_arch: str, ticker: str, time_
 
     # Predict
     if model_arch in ['LSTM', 'transformer']:
-        model = load_model(model_path, compile=False)
+        with custom_object_scope({'SinePositionEncoding': SinePositionEncoding}):
+            model = load_model(model_path, compile=False)
     elif model_arch == 'forest':
         model = joblib.load(model_path)
         X = X.reshape(X.shape[0], -1)
