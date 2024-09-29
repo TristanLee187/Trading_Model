@@ -382,7 +382,7 @@ if __name__ == '__main__':
             VERSION, args.model, args.time_interval, args.label, loss_func_str
         )
 
-        model_path = f'{tag}_model.h5'
+        model_path = f'{tag}_model.keras'
     # Get the model location for Random Forest
     elif args.model == 'forest':
         tag = './models/{}/{}_{}_close-{}'.format(

@@ -12,6 +12,7 @@ from keras_nlp.layers import SinePositionEncoding
 from tensorflow.keras.optimizers import RMSprop
 from keras.callbacks import ReduceLROnPlateau
 from keras.metrics import AUC
+from keras.utils import custom_object_scope
 from sklearn.ensemble import RandomForestClassifier
 import joblib
 import argparse
@@ -264,7 +265,8 @@ if __name__ == '__main__':
             X, y, test_size=0.2, random_state=0)
         # Get appropriate NN architecture
         if args.resume is not None:
-            model = load_model(args.resume, compile=False)
+            with custom_object_scope({'SinePositionEncoding': SinePositionEncoding}):
+                model = load_model(args.resume, compile=False)
         elif args.model == 'LSTM':
             model = get_lstm_model(X[0].shape, args.label)
         else:
@@ -294,7 +296,7 @@ if __name__ == '__main__':
             VERSION, args.model, args.time_interval, args.label, loss_func_str
         )
 
-        model.save(f'{tag}_model.h5')
+        model.save(f'{tag}_model.keras')
 
     elif args.model == "forest":
         model = get_random_forest_model()
