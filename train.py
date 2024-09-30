@@ -183,21 +183,21 @@ def get_transformer_model(shape: tuple, label: str):
     # Define the Transformer model
     # Get inputs as both temporal and feature sequences
     input_layer = Input(shape=shape)
-    # transposed_input_layer = Permute((2, 1))(input_layer)
+    transposed_input_layer = Permute((2, 1))(input_layer)
     # Apply transformer stacks to both of them
     temporal_transformer_layer = transformer_stack(
         input_layer, num_heads=4, key_dim=8, ff_dim_1=64, ff_dim_2=shape[1], num_blocks=1)
-    # feature_transformer_layer = transformer_stack(
-    #     transposed_input_layer, num_heads=6, key_dim=6, ff_dim_1=128, ff_dim_2=shape[0], num_blocks=8)
-    # Concatenate them together
-    # concated_layer = Concatenate()([
-    #     temporal_transformer_layer, Permute((2, 1))(feature_transformer_layer)
-    # ])
+    feature_transformer_layer = transformer_stack(
+        transposed_input_layer, num_heads=4, key_dim=8, ff_dim_1=128, ff_dim_2=shape[0], num_blocks=1)
+    # Add them together
+    combined_layer = Add()([
+        temporal_transformer_layer, Permute((2, 1))(feature_transformer_layer)
+    ])
     # Apply transformer stacks to the concatenation
-    # combined_transformer_layer = transformer_stack(
-    #     concated_layer, num_heads=6, key_dim=6, ff_dim_1=128, ff_dim_2=2*shape[1], num_blocks=8)
+    combined_transformer_layer = transformer_stack(
+        combined_layer, num_heads=4, key_dim=8, ff_dim_1=128, ff_dim_2=shape[1], num_blocks=1)
     # Pool
-    pooling_layer = LSTM(units=64)(temporal_transformer_layer)
+    pooling_layer = Flatten()(combined_transformer_layer)
     # Output
     dense_layer_1 = Dense(units=256, activation='sigmoid')(pooling_layer)
     dense_layer_2 = Dense(units=64, activation='sigmoid')(dense_layer_1)
