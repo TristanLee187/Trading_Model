@@ -197,7 +197,7 @@ def get_transformer_model(shape: tuple, label: str):
     # combined_transformer_layer = transformer_stack(
     #     concated_layer, num_heads=6, key_dim=6, ff_dim_1=128, ff_dim_2=2*shape[1], num_blocks=8)
     # Pool
-    pooling_layer = Flatten()(temporal_transformer_layer)
+    pooling_layer = LSTM(units=64)(temporal_transformer_layer)
     # Output
     dense_layer_1 = Dense(units=256, activation='sigmoid')(pooling_layer)
     dense_layer_2 = Dense(units=64, activation='sigmoid')(dense_layer_1)
