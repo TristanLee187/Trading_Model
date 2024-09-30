@@ -26,7 +26,7 @@ VERSION = 'v7'
 WINDOW_LENGTH = 30
 
 # Number of time points to use for defibing buy/sell labels (for constrained linear regression).
-FUTURE_WINDOW_LENGTH = 15
+FUTURE_WINDOW_LENGTH = 30
 
 # Slope to use when classifying buy/sell labels.
 buy_sell_slope = 1

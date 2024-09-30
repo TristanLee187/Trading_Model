@@ -48,7 +48,7 @@ def prepare_training_data(time_interval: str, label: str):
 
     # Generate data for each ticker
     for ticker in tickers:
-        data = tickers_df_grouped.get_group(ticker)
+        data = tickers_df_grouped.get_group((ticker,))
 
         if time_interval == '1m':
             # Break down each file into its component days
@@ -93,9 +93,9 @@ def custom_categorical_crossentropy(y_true, y_pred):
     """
     # weights[i][j]: penalty for if the ground truth was i but the predicted was j.
     weights = tf.constant([
-        [0.0, 3.0, 3.0],
-        [2.0, 0.0, 10.0],
-        [2.0, 10.0, 0.0]
+        [0.0, 2.0, 2.0],
+        [3.0, 0.0, 10.0],
+        [3.0, 10.0, 0.0]
     ])
 
     y_true = tf.cast(y_true, tf.float32)
@@ -277,7 +277,7 @@ if __name__ == '__main__':
             model.compile(optimizer='adam', loss=args.error)
         elif args.label == 'signal':
             model.compile(
-                optimizer=RMSprop(learning_rate=0.01),
+                optimizer=RMSprop(learning_rate=0.002),
                 loss=custom_categorical_crossentropy, 
                 metrics=[AUC(curve="PR")])
 
