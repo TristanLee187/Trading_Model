@@ -288,7 +288,7 @@ if __name__ == '__main__':
         class_proportions = Counter(y_train.argmax(axis=1))
         class_weights = {i: 1/class_proportions[i] for i in class_proportions}
         model.fit(X_train, y_train, epochs=args.epochs, batch_size=32,
-                  class_weights=class_weights, validation_data=(X_val, y_val), 
+                  class_weight=class_weights, validation_data=(X_val, y_val), 
                   callbacks=[lr_scheduler])
         
         # Save the model
