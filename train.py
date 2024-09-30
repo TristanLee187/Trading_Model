@@ -3,12 +3,14 @@
 import numpy as np
 import pandas as pd
 from common import *
+from collections import Counter
 from sklearn.model_selection import train_test_split
 import tensorflow as tf
 from keras import Model
 from keras.models import Sequential, load_model
 from keras.layers import LSTM, Dense, Input, MultiHeadAttention, Add, LayerNormalization, Permute, Concatenate, GlobalAveragePooling1D
 from keras_nlp.layers import SinePositionEncoding
+from keras.initializers import HeNormal
 from tensorflow.keras.optimizers import RMSprop
 from keras.callbacks import ReduceLROnPlateau
 from keras.metrics import F1Score
@@ -93,9 +95,9 @@ def custom_categorical_crossentropy(y_true, y_pred):
     """
     # weights[i][j]: penalty for if the ground truth was i but the predicted was j.
     weights = tf.constant([
-        [0.0, 2.0, 2.0],
-        [5.0, 0.0, 10.0],
-        [5.0, 10.0, 0.0]
+        [0.0, 1.0, 1.0],
+        [2.0, 0.0, 4.0],
+        [2.0, 4.0, 0.0]
     ])
 
     y_true = tf.cast(y_true, tf.float32)
@@ -162,12 +164,12 @@ def get_transformer_model(shape: tuple, label: str):
     def transformer_block(x, num_heads, key_dim, ff_dim_1, ff_dim_2):
         x = Add()([x, SinePositionEncoding()(x)])
         attn_layer = MultiHeadAttention(
-            num_heads=num_heads, key_dim=key_dim,
+            num_heads=num_heads, key_dim=key_dim, kernel_initializer=HeNormal(),
             dropout=0.1)(x, x)
         x = Add()([x, attn_layer])
         x = LayerNormalization(epsilon=1e-6)(x)
-        ff = Dense(ff_dim_2, activation='relu')(
-            Dense(ff_dim_1, activation='relu')(x))
+        ff = Dense(ff_dim_2, kernel_initializer=HeNormal(), activation='relu')(
+            Dense(ff_dim_1, kernel_initializer=HeNormal(), activation='relu')(x))
         x = Add()([x, ff])
         x = LayerNormalization(epsilon=1e-6)(x)
         return x
@@ -198,7 +200,7 @@ def get_transformer_model(shape: tuple, label: str):
     # Pool
     pooling_layer = GlobalAveragePooling1D()(combined_transformer_layer)
     # Output
-    dense_layer = Dense(units=128, activation='relu')(pooling_layer)
+    dense_layer = Dense(units=128, kernel_initializer=HeNormal(), activation='relu')(pooling_layer)
     output_layer = last_layer(label)(dense_layer)
     model = Model(inputs=input_layer, outputs=output_layer)
 
@@ -283,8 +285,11 @@ if __name__ == '__main__':
 
         # Train!
         lr_scheduler = ReduceLROnPlateau(monitor='loss', factor=0.5, patience=3, min_lr = 1e-7)
+        class_proportions = Counter(y_train.argmax(axis=1))
+        class_weights = {i: 1/class_proportions[i] for i in class_proportions}
         model.fit(X_train, y_train, epochs=args.epochs, batch_size=32,
-                  validation_data=(X_val, y_val), callbacks=[lr_scheduler])
+                  class_weights=class_weights, validation_data=(X_val, y_val), 
+                  callbacks=[lr_scheduler])
         
         # Save the model
         if args.label == 'price':

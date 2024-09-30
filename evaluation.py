@@ -299,6 +299,7 @@ def ticker_class_model_eval(model_path: str, model_arch: str, ticker: str, time_
         model = joblib.load(model_path)
         X = X.reshape(X.shape[0], -1)
     y_predictions = model.predict(X)
+    print(y_predictions)
 
     # Convert one-hot predictions to classes (0 for do nothing, 1 for buy, 2 for sell)
     y_gt = np.argmax(y_gt, axis=1)
