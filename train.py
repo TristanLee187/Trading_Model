@@ -186,16 +186,16 @@ def get_transformer_model(shape: tuple, label: str):
     transposed_input_layer = Permute((2, 1))(input_layer)
     # Apply transformer stacks to both of them
     temporal_transformer_layer = transformer_stack(
-        input_layer, num_heads=4, key_dim=8, ff_dim_1=64, ff_dim_2=shape[1], num_blocks=1)
+        input_layer, num_heads=4, key_dim=8, ff_dim_1=64, ff_dim_2=shape[1], num_blocks=2)
     feature_transformer_layer = transformer_stack(
-        transposed_input_layer, num_heads=4, key_dim=8, ff_dim_1=128, ff_dim_2=shape[0], num_blocks=1)
+        transposed_input_layer, num_heads=4, key_dim=8, ff_dim_1=128, ff_dim_2=shape[0], num_blocks=2)
     # Add them together
     combined_layer = Add()([
         temporal_transformer_layer, Permute((2, 1))(feature_transformer_layer)
     ])
     # Apply transformer stacks to the concatenation
     combined_transformer_layer = transformer_stack(
-        combined_layer, num_heads=4, key_dim=8, ff_dim_1=128, ff_dim_2=shape[1], num_blocks=1)
+        combined_layer, num_heads=4, key_dim=8, ff_dim_1=128, ff_dim_2=shape[1], num_blocks=2)
     # Pool
     pooling_layer = Flatten()(combined_transformer_layer)
     # Output

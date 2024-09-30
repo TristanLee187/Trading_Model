@@ -393,7 +393,7 @@ if __name__ == '__main__':
         model_path = f'{tag}_model.pkl'
 
     if args.time_interval == '1d':
-        start, end = date(2024, 1, 1), date(2024, 7, 31)
+        start, end = date(2024, 1, 1), date(2024, 9, 30)
     elif args.time_interval == '1m':
         start, end = date(2024, 8, 5), None
 
