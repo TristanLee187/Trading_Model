@@ -8,7 +8,7 @@ from sklearn.model_selection import train_test_split
 import tensorflow as tf
 from keras import Model
 from keras.api.models import Sequential, load_model
-from keras.api.layers import LSTM, Dense, Input, MultiHeadAttention, Add, LayerNormalization, Permute, Concatenate, GlobalAveragePooling1D
+from keras.api.layers import LSTM, Dense, Input, MultiHeadAttention, Add, LayerNormalization, Permute, Concatenate
 from keras_nlp.api.layers import SinePositionEncoding
 from keras.api.initializers import HeNormal
 from keras.api.optimizers import RMSprop
@@ -163,12 +163,12 @@ def get_transformer_model(shape: tuple, label: str):
     def transformer_block(x, num_heads, key_dim, ff_dim_1, ff_dim_2):
         x = Add()([x, SinePositionEncoding()(x)])
         attn_layer = MultiHeadAttention(
-            num_heads=num_heads, key_dim=key_dim, kernel_initializer=HeNormal(),
+            num_heads=num_heads, key_dim=key_dim,
             dropout=0.1)(x, x)
         x = Add()([x, attn_layer])
         x = LayerNormalization(epsilon=1e-6)(x)
-        ff = Dense(ff_dim_2, kernel_initializer=HeNormal(), activation='relu')(
-            Dense(ff_dim_1, kernel_initializer=HeNormal(), activation='relu')(x))
+        ff = Dense(ff_dim_2, activation='sigmoid')(
+            Dense(ff_dim_1, activation='sigmoid')(x))
         x = Add()([x, ff])
         x = LayerNormalization(epsilon=1e-6)(x)
         return x
@@ -183,23 +183,23 @@ def get_transformer_model(shape: tuple, label: str):
     # Define the Transformer model
     # Get inputs as both temporal and feature sequences
     input_layer = Input(shape=shape)
-    transposed_input_layer = Permute((2, 1))(input_layer)
+    # transposed_input_layer = Permute((2, 1))(input_layer)
     # Apply transformer stacks to both of them
     temporal_transformer_layer = transformer_stack(
-        input_layer, num_heads=4, key_dim=4, ff_dim_1=64, ff_dim_2=shape[1], num_blocks=8)
-    feature_transformer_layer = transformer_stack(
-        transposed_input_layer, num_heads=6, key_dim=6, ff_dim_1=128, ff_dim_2=shape[0], num_blocks=8)
+        input_layer, num_heads=4, key_dim=8, ff_dim_1=64, ff_dim_2=shape[1], num_blocks=1)
+    # feature_transformer_layer = transformer_stack(
+    #     transposed_input_layer, num_heads=6, key_dim=6, ff_dim_1=128, ff_dim_2=shape[0], num_blocks=8)
     # Concatenate them together
-    concated_layer = Concatenate()([
-        temporal_transformer_layer, Permute((2, 1))(feature_transformer_layer)
-    ])
+    # concated_layer = Concatenate()([
+    #     temporal_transformer_layer, Permute((2, 1))(feature_transformer_layer)
+    # ])
     # Apply transformer stacks to the concatenation
-    combined_transformer_layer = transformer_stack(
-        concated_layer, num_heads=6, key_dim=6, ff_dim_1=128, ff_dim_2=2*shape[1], num_blocks=8)
+    # combined_transformer_layer = transformer_stack(
+    #     concated_layer, num_heads=6, key_dim=6, ff_dim_1=128, ff_dim_2=2*shape[1], num_blocks=8)
     # Pool
-    pooling_layer = GlobalAveragePooling1D()(combined_transformer_layer)
+    pooling_layer = LSTM(units=32)(temporal_transformer_layer)
     # Output
-    dense_layer = Dense(units=128, kernel_initializer=HeNormal(), activation='relu')(pooling_layer)
+    dense_layer = Dense(units=128, activation='sigmoid')(pooling_layer)
     output_layer = last_layer(label)(dense_layer)
     model = Model(inputs=input_layer, outputs=output_layer)
 
