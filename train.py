@@ -278,7 +278,7 @@ if __name__ == '__main__':
         elif args.label == 'signal':
             model.compile(
                 optimizer=RMSprop(learning_rate=0.002),
-                loss="categorical_crossentropy", 
+                loss=custom_categorical_crossentropy, 
                 metrics=[F1Score()])
 
         # Train!
