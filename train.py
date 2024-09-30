@@ -94,9 +94,9 @@ def custom_categorical_crossentropy(y_true, y_pred):
     """
     # weights[i][j]: penalty for if the ground truth was i but the predicted was j.
     weights = tf.constant([
-        [0.0, 1.0, 1.0],
-        [2.0, 0.0, 4.0],
-        [2.0, 4.0, 0.0]
+        [0.0, 2.0, 2.0],
+        [3.0, 0.0, 10.0],
+        [3.0, 10.0, 0.0]
     ])
 
     y_true = tf.cast(y_true, tf.float32)
@@ -284,11 +284,8 @@ if __name__ == '__main__':
 
         # Train!
         lr_scheduler = ReduceLROnPlateau(monitor='loss', factor=0.5, patience=3, min_lr = 1e-7)
-        class_proportions = Counter(y_train.argmax(axis=1))
-        class_weights = {i: X.shape[0]/class_proportions[i] for i in class_proportions}
         model.fit(X_train, y_train, epochs=args.epochs, batch_size=32,
-                  class_weight=class_weights, validation_data=(X_val, y_val), 
-                  callbacks=[lr_scheduler])
+                  validation_data=(X_val, y_val), callbacks=[lr_scheduler])
         
         # Save the model
         if args.label == 'price':
