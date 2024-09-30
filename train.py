@@ -167,8 +167,8 @@ def get_transformer_model(shape: tuple, label: str):
             dropout=0.1)(x, x)
         x = Add()([x, attn_layer])
         x = LayerNormalization(epsilon=1e-6)(x)
-        ff = Dense(ff_dim_2, activation='sigmoid')(
-            Dense(ff_dim_1, activation='sigmoid')(x))
+        ff = Dense(ff_dim_2, kernel_initializer=HeNormal(), activation='relu')(
+            Dense(ff_dim_1, kernel_initializer=HeNormal(), activation='relu')(x))
         x = Add()([x, ff])
         x = LayerNormalization(epsilon=1e-6)(x)
         return x
@@ -199,7 +199,7 @@ def get_transformer_model(shape: tuple, label: str):
     # Pool
     pooling_layer = LSTM(units=32)(temporal_transformer_layer)
     # Output
-    dense_layer = Dense(units=128, activation='sigmoid')(pooling_layer)
+    dense_layer = Dense(units=128, kernel_initializer=HeNormal(), activation='relu')(pooling_layer)
     output_layer = last_layer(label)(dense_layer)
     model = Model(inputs=input_layer, outputs=output_layer)
 
@@ -279,7 +279,7 @@ if __name__ == '__main__':
         elif args.label == 'signal':
             model.compile(
                 optimizer=RMSprop(learning_rate=0.002),
-                loss="categorical_crossentropy", 
+                loss=custom_categorical_crossentropy, 
                 metrics=[F1Score()])
 
         # Train!
