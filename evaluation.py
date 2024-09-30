@@ -4,9 +4,9 @@ import numpy as np
 import pandas as pd
 from common import *
 from build_data_set import build_daily_dataset, build_minute_dataset
-from keras.models import load_model
-from keras_nlp.layers import SinePositionEncoding
-from keras.utils import custom_object_scope
+from keras.api.models import load_model
+from keras_nlp.api.layers import SinePositionEncoding
+from keras.api.utils import custom_object_scope
 from datetime import date, timedelta
 import matplotlib.pyplot as plt
 import joblib

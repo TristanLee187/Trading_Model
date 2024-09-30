@@ -7,18 +7,17 @@ from collections import Counter
 from sklearn.model_selection import train_test_split
 import tensorflow as tf
 from keras import Model
-from keras.models import Sequential, load_model
-from keras.layers import LSTM, Dense, Input, MultiHeadAttention, Add, LayerNormalization, Permute, Concatenate, GlobalAveragePooling1D
-from keras_nlp.layers import SinePositionEncoding
-from keras.initializers import HeNormal
-from tensorflow.keras.optimizers import RMSprop
-from keras.callbacks import ReduceLROnPlateau
-from keras.metrics import F1Score
-from keras.utils import custom_object_scope
+from keras.api.models import Sequential, load_model
+from keras.api.layers import LSTM, Dense, Input, MultiHeadAttention, Add, LayerNormalization, Permute, Concatenate, GlobalAveragePooling1D
+from keras_nlp.api.layers import SinePositionEncoding
+from keras.api.initializers import HeNormal
+from keras.api.optimizers import RMSprop
+from keras.api.callbacks import ReduceLROnPlateau
+from keras.api.metrics import F1Score
+from keras.api.utils import custom_object_scope
 from sklearn.ensemble import RandomForestClassifier
 import joblib
 import argparse
-
 
 def prepare_training_data(time_interval: str, label: str):
     """
@@ -286,7 +285,7 @@ if __name__ == '__main__':
         # Train!
         lr_scheduler = ReduceLROnPlateau(monitor='loss', factor=0.5, patience=3, min_lr = 1e-7)
         class_proportions = Counter(y_train.argmax(axis=1))
-        class_weights = {i: 1/class_proportions[i] for i in class_proportions}
+        class_weights = {i: X.shape[0]/class_proportions[i] for i in class_proportions}
         model.fit(X_train, y_train, epochs=args.epochs, batch_size=32,
                   class_weights=class_weights, validation_data=(X_val, y_val), 
                   callbacks=[lr_scheduler])
