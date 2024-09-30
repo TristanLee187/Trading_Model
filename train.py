@@ -186,7 +186,7 @@ def get_transformer_model(shape: tuple, label: str):
     # transposed_input_layer = Permute((2, 1))(input_layer)
     # Apply transformer stacks to both of them
     temporal_transformer_layer = transformer_stack(
-        input_layer, num_heads=4, key_dim=8, ff_dim_1=64, ff_dim_2=shape[1], num_blocks=2)
+        input_layer, num_heads=4, key_dim=8, ff_dim_1=64, ff_dim_2=shape[1], num_blocks=1)
     # feature_transformer_layer = transformer_stack(
     #     transposed_input_layer, num_heads=6, key_dim=6, ff_dim_1=128, ff_dim_2=shape[0], num_blocks=8)
     # Concatenate them together
