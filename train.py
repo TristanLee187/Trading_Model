@@ -8,7 +8,7 @@ from sklearn.model_selection import train_test_split
 import tensorflow as tf
 from keras import Model
 from keras.api.models import Sequential, load_model
-from keras.api.layers import LSTM, Dense, Input, MultiHeadAttention, Add, LayerNormalization, Permute, Concatenate
+from keras.api.layers import LSTM, Dense, Input, MultiHeadAttention, Add, LayerNormalization, Permute, Concatenate, Flatten
 from keras_nlp.api.layers import SinePositionEncoding
 from keras.api.initializers import HeNormal
 from keras.api.optimizers import RMSprop
@@ -197,10 +197,11 @@ def get_transformer_model(shape: tuple, label: str):
     # combined_transformer_layer = transformer_stack(
     #     concated_layer, num_heads=6, key_dim=6, ff_dim_1=128, ff_dim_2=2*shape[1], num_blocks=8)
     # Pool
-    pooling_layer = LSTM(units=32)(temporal_transformer_layer)
+    pooling_layer = Flatten()(temporal_transformer_layer)
     # Output
-    dense_layer = Dense(units=128, kernel_initializer=HeNormal(), activation='relu')(pooling_layer)
-    output_layer = last_layer(label)(dense_layer)
+    dense_layer_1 = Dense(units=256, kernel_initializer=HeNormal(), activation='relu')(pooling_layer)
+    dense_layer_2 = Dense(units=64, kernel_initializer=HeNormal(), activation='relu')(dense_layer_1)
+    output_layer = last_layer(label)(dense_layer_2)
     model = Model(inputs=input_layer, outputs=output_layer)
 
     return model
@@ -279,13 +280,16 @@ if __name__ == '__main__':
         elif args.label == 'signal':
             model.compile(
                 optimizer=RMSprop(learning_rate=0.002),
-                loss=custom_categorical_crossentropy, 
+                loss="categorical_crossentropy", 
                 metrics=[F1Score()])
 
         # Train!
         lr_scheduler = ReduceLROnPlateau(monitor='loss', factor=0.5, patience=3, min_lr = 1e-7)
+        class_proportions = Counter(y_train.argmax(axis=1))
+        class_weights = {i: X.shape[0]/class_proportions[i] for i in class_proportions}
         model.fit(X_train, y_train, epochs=args.epochs, batch_size=32,
-                  validation_data=(X_val, y_val), callbacks=[lr_scheduler])
+                  class_weight=class_weights, validation_data=(X_val, y_val), 
+                  callbacks=[lr_scheduler])
         
         # Save the model
         if args.label == 'price':
