@@ -121,7 +121,7 @@ def last_layer(label: str):
             - "signal" (classification): A Dense layer with 3 units and softmax activation.
     """
     if label == 'price':
-        return Dense(units=1, activation='sigmoid')
+        return Dense(units=1)
     elif label == 'signal':
         return Dense(units=3, activation='softmax')
 
@@ -163,12 +163,12 @@ def get_transformer_model(shape: tuple, label: str):
     def transformer_block(x, num_heads, key_dim, ff_dim_1, ff_dim_2):
         x = Add()([x, SinePositionEncoding()(x)])
         attn_layer = MultiHeadAttention(
-            num_heads=num_heads, key_dim=key_dim,
+            num_heads=num_heads, key_dim=key_dim, kernel_initializer=HeNormal(),
             dropout=0.1)(x, x)
         x = Add()([x, attn_layer])
         x = LayerNormalization(epsilon=1e-6)(x)
-        ff = Dense(ff_dim_2, activation='sigmoid')(
-            Dense(ff_dim_1, activation='sigmoid')(x))
+        ff = Dense(ff_dim_2, kernel_initializer=HeNormal(), activation='relu')(
+            Dense(ff_dim_1, kernel_initializer=HeNormal(), activation='relu')(x))
         x = Add()([x, ff])
         x = LayerNormalization(epsilon=1e-6)(x)
         return x
@@ -199,8 +199,8 @@ def get_transformer_model(shape: tuple, label: str):
     # Pool
     pooling_layer = Flatten()(combined_transformer_layer)
     # Output
-    dense_layer_1 = Dense(units=256, activation='sigmoid')(pooling_layer)
-    dense_layer_2 = Dense(units=64, activation='sigmoid')(dense_layer_1)
+    dense_layer_1 = Dense(units=256, kernel_initializer=HeNormal(), activation='relu')(pooling_layer)
+    dense_layer_2 = Dense(units=64, kernel_initializer=HeNormal(), activation='relu')(dense_layer_1)
     output_layer = last_layer(label)(dense_layer_2)
     model = Model(inputs=input_layer, outputs=output_layer)
 
