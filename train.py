@@ -279,16 +279,16 @@ if __name__ == '__main__':
             model.compile(optimizer='adam', loss=args.error)
         elif args.label == 'signal':
             model.compile(
-                optimizer=RMSprop(learning_rate=0.002),
-                loss="categorical_crossentropy", 
+                optimizer=RMSprop(learning_rate=0.001),
+                loss=custom_categorical_crossentropy, 
                 metrics=[F1Score()])
 
         # Train!
-        lr_scheduler = ReduceLROnPlateau(monitor='loss', factor=0.5, patience=3, min_lr = 1e-7)
-        class_proportions = Counter(y_train.argmax(axis=1))
-        class_weights = {i: X.shape[0]/class_proportions[i] for i in class_proportions}
-        model.fit(X_train, y_train, epochs=args.epochs, batch_size=32,
-                  class_weight=class_weights, validation_data=(X_val, y_val), 
+        lr_scheduler = ReduceLROnPlateau(monitor='loss', factor=0.5, patience=5, min_lr = 1e-7)
+        # class_proportions = Counter(y_train.argmax(axis=1))
+        # class_weights = {i: X.shape[0]/class_proportions[i] for i in class_proportions}
+        model.fit(X_train, y_train, epochs=args.epochs, batch_size=16,
+                  validation_data=(X_val, y_val), 
                   callbacks=[lr_scheduler])
         
         # Save the model
