@@ -95,8 +95,8 @@ def custom_categorical_crossentropy(y_true, y_pred):
     # weights[i][j]: penalty for if the ground truth was i but the predicted was j.
     weights = tf.constant([
         [0.0, 2.0, 2.0],
-        [4.0, 0.0, 10.0],
-        [4.0, 10.0, 0.0]
+        [3.0, 0.0, 10.0],
+        [3.0, 10.0, 0.0]
     ])
 
     y_true = tf.cast(y_true, tf.float32)
