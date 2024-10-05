@@ -99,7 +99,6 @@ def custom_categorical_crossentropy(y_true, y_pred):
         [3.0, 10.0, 0.0]
     ])
 
-    y_true = tf.cast(y_true, tf.float32)
     y_pred = tf.clip_by_value(y_pred, 1e-7, 1.0)
     ce_loss = -tf.reduce_sum(y_true * tf.math.log(y_pred), axis=-1)
     weights_tensor = tf.reduce_sum(tf.expand_dims(
@@ -181,23 +180,35 @@ def get_transformer_model(shape: tuple, label: str):
         return x
 
     # Define the Transformer model
-    # Get inputs as both temporal and feature sequences
+    # Input layer
     input_layer = Input(shape=shape)
-    transposed_input_layer = Permute((2, 1))(input_layer)
+
+    # Reduce to a latent space with LSTMs
+    latent_dim_1 = int(0.75 * shape[1])
+    latent_dim_2 = int(0.75 * latent_dim_1)
+    dim_red_layer_1 = LSTM(units=latent_dim_1, return_sequences=True)(input_layer)
+    dim_red_layer_2 = LSTM(units=latent_dim_2, return_sequences=True)(dim_red_layer_1)
+    # Get the transposed latent output
+    transposed_dim_red_layer_2 = Permute((2, 1))(dim_red_layer_2)
+
     # Apply transformer stacks to both of them
     temporal_transformer_layer = transformer_stack(
-        input_layer, num_heads=4, key_dim=8, ff_dim_1=64, ff_dim_2=shape[1], num_blocks=2)
+        dim_red_layer_2, num_heads=4, key_dim=4, ff_dim_1=64, ff_dim_2=latent_dim_2, num_blocks=2)
     feature_transformer_layer = transformer_stack(
-        transposed_input_layer, num_heads=4, key_dim=8, ff_dim_1=128, ff_dim_2=shape[0], num_blocks=2)
+        transposed_dim_red_layer_2, num_heads=4, key_dim=4, ff_dim_1=128, ff_dim_2=shape[0], num_blocks=2)
+    
     # Add them together
     combined_layer = Add()([
         temporal_transformer_layer, Permute((2, 1))(feature_transformer_layer)
     ])
+    
     # Apply transformer stacks to the concatenation
     combined_transformer_layer = transformer_stack(
-        combined_layer, num_heads=4, key_dim=8, ff_dim_1=128, ff_dim_2=shape[1], num_blocks=2)
+        combined_layer, num_heads=4, key_dim=4, ff_dim_1=128, ff_dim_2=latent_dim_2, num_blocks=2)
+    
     # Pool
     pooling_layer = Flatten()(combined_transformer_layer)
+    
     # Output
     dense_layer_1 = Dense(units=256, kernel_initializer=HeNormal(), activation='relu')(pooling_layer)
     dense_layer_2 = Dense(units=64, kernel_initializer=HeNormal(), activation='relu')(dense_layer_1)
