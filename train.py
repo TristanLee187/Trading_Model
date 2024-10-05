@@ -101,9 +101,13 @@ def custom_categorical_crossentropy(y_true, y_pred):
 
     y_pred = tf.clip_by_value(y_pred, 1e-7, 1.0)
     ce_loss = -tf.reduce_sum(y_true * tf.math.log(y_pred), axis=-1)
-    weights_tensor = tf.reduce_sum(tf.expand_dims(
-        weights, axis=0) * tf.expand_dims(y_true, axis=-1), axis=-2)
-    weighted_loss = ce_loss * tf.reduce_sum(weights_tensor, axis=-1)
+
+    true_class_idx = tf.argmax(y_true, axis=-1)
+    pred_class_idx = tf.argmax(y_pred, axis=-1)
+
+    penalties = tf.gather_nd(weights, tf.stack([true_class_idx, pred_class_idx], axis=1))
+    weighted_loss = ce_loss * penalties
+
     return weighted_loss
 
 
