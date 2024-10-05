@@ -279,7 +279,7 @@ if __name__ == '__main__':
             model.compile(optimizer='adam', loss=args.error)
         elif args.label == 'signal':
             model.compile(
-                optimizer=RMSprop(learning_rate=0.0001),
+                optimizer=RMSprop(learning_rate=0.001),
                 loss=custom_categorical_crossentropy, 
                 metrics=[F1Score()])
 
