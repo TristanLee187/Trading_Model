@@ -28,16 +28,20 @@ optional arguments:
                         model type/architecture to use
   -t {1m,1d}, --time_interval {1m,1d}
                         time interval data to train on
+  -d TRAIN_DATA, --train_data TRAIN_DATA
+                        if set, path to file containing X and y sequence data
   -l {price,signal}, --label {price,signal}
                         labels to use for each instance
   -e ERROR, --error ERROR
                         error (loss) function to use (required for regression, ignored if classification)
   -r RESUME, --resume RESUME
                         if set, path to a model to resume training on (only works for NNs)
+  -p EPOCHS, --epochs EPOCHS
+                        number of training epochs for the NN models (defaults to 20)
 ```
 Note that though the output says the arguments are optional, most are actually required.
 
 ## My Results
-My most successful regression model (predicting the next day's price) mostly predicted a price pretty close to the previous day's price. `./plots/v3` has some example plots for both daily and minute data of ground truth versus predicted prices illustrating this. Visually, this type of prediction manifects as a small gap between the ground truth and predictions, with the predictions chasing the previous day's price (in general, anyway). Outside of this, the model appears to give importance to a "momentum" of the previous days' prices; for instance, if price increased for 3 consecutive days, the model "adds" some positive amount to its prediction. `./plots/final/prices` includes regression plots where the predicted price follows the previous day a bit less than shown in `./plots/v3`.
+My most successful regression model (predicting the next day's price) mostly predicted a price pretty close to the previous day's price. `./plots/v3` has some example plots for both daily and minute data of ground truth versus predicted prices illustrating this. Visually, this type of prediction manifects as a small gap between the ground truth and predictions, with the predictions chasing the previous day's price (in general, anyway). Outside of this, the model appears to give importance to a "momentum" of the previous days' prices; for instance, if price increased for 3 consecutive days, the model "adds" some positive amount to its prediction. `./plots/final/prices` includes additional plots.
 
-My most successful classification models (predicting buy, sell, or do nothing signals) had mixed performance across different tickers. `./plots/final/signals` has example plots of some successful (AAPL and NVDA) and unsuccessful (SBUX) predictions. I used a simple strategy that soley depends on the predicted signals and consists of just buying/selling the stock (not options): buy a stock whenever there's a buy signal, or sell all stock whenever there's a sell signal, and do nothing otherwise. Using this strategy produced a 4.82% and 5.55% profit using Transformer and Random Forest models, respectively, when averaged across all tickers (in my case the S&P 100 companies).
+My most successful classification models (predicting buy, sell, or do nothing signals) had mixed performance across different tickers. `./plots/final/signals` has example plots of some successful (AAPL and TSLA) and unsuccessful (NKE and SBUX) predictions. I used a simple strategy that soley depends on the predicted signals and consists of just buying/selling the stock (not options): buy a stock whenever there's a buy signal, or sell all stock whenever there's a sell signal, and do nothing otherwise. Using this strategy produced a 10.61% and 5.55% profit using Transformer and Random Forest models, respectively, when averaged across all tickers (in my case the S&P 100 companies). The Transformer model in particular seems to predict no buy actions for many companies, with most of its profit coming from choosing a relatively small number of tickers.
