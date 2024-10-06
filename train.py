@@ -99,7 +99,6 @@ def custom_categorical_crossentropy(y_true, y_pred):
         [3.0, 10.0, 0.0]
     ])
 
-    y_true = tf.cast(y_true, tf.float32)
     y_pred = tf.clip_by_value(y_pred, 1e-7, 1.0)
     ce_loss = -tf.reduce_sum(y_true * tf.math.log(y_pred), axis=-1)
     weights_tensor = tf.reduce_sum(tf.expand_dims(
@@ -186,16 +185,16 @@ def get_transformer_model(shape: tuple, label: str):
     transposed_input_layer = Permute((2, 1))(input_layer)
     # Apply transformer stacks to both of them
     temporal_transformer_layer = transformer_stack(
-        input_layer, num_heads=4, key_dim=8, ff_dim_1=64, ff_dim_2=shape[1], num_blocks=2)
+        input_layer, num_heads=4, key_dim=8, ff_dim_1=64, ff_dim_2=shape[1], num_blocks=4)
     feature_transformer_layer = transformer_stack(
-        transposed_input_layer, num_heads=4, key_dim=8, ff_dim_1=128, ff_dim_2=shape[0], num_blocks=2)
+        transposed_input_layer, num_heads=4, key_dim=8, ff_dim_1=128, ff_dim_2=shape[0], num_blocks=4)
     # Add them together
     combined_layer = Add()([
         temporal_transformer_layer, Permute((2, 1))(feature_transformer_layer)
     ])
     # Apply transformer stacks to the concatenation
     combined_transformer_layer = transformer_stack(
-        combined_layer, num_heads=4, key_dim=8, ff_dim_1=128, ff_dim_2=shape[1], num_blocks=2)
+        combined_layer, num_heads=4, key_dim=8, ff_dim_1=128, ff_dim_2=shape[1], num_blocks=4)
     # Pool
     pooling_layer = Flatten()(combined_transformer_layer)
     # Output
