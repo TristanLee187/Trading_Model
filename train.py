@@ -201,14 +201,14 @@ def get_transformer_model(shape: tuple, label: str):
     feature_transformer_layer = transformer_stack(
         transposed_dim_red_layer_2, num_heads=4, key_dim=4, ff_dim_1=128, ff_dim_2=shape[0], num_blocks=2)
     
-    # Add them together
-    combined_layer = Add()([
+    # Concat them together
+    combined_layer = Concatenate()([
         temporal_transformer_layer, Permute((2, 1))(feature_transformer_layer)
     ])
     
     # Apply transformer stacks to the concatenation
     combined_transformer_layer = transformer_stack(
-        combined_layer, num_heads=4, key_dim=4, ff_dim_1=128, ff_dim_2=latent_dim_2, num_blocks=2)
+        combined_layer, num_heads=4, key_dim=8, ff_dim_1=128, ff_dim_2=latent_dim_2, num_blocks=2)
     
     # Pool
     pooling_layer = Flatten()(combined_transformer_layer)
@@ -302,7 +302,7 @@ if __name__ == '__main__':
         lr_scheduler = ReduceLROnPlateau(monitor='loss', factor=0.5, patience=5, min_lr = 1e-7)
         # class_proportions = Counter(y_train.argmax(axis=1))
         # class_weights = {i: X.shape[0]/class_proportions[i] for i in class_proportions}
-        model.fit(X_train, y_train, epochs=args.epochs, batch_size=16,
+        model.fit(X_train, y_train, epochs=args.epochs, batch_size=256,
                   validation_data=(X_val, y_val), 
                   callbacks=[lr_scheduler])
         
