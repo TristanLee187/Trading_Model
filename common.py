@@ -28,8 +28,8 @@ WINDOW_LENGTH = 30
 # Number of time points to use for defibing buy/sell labels (for constrained linear regression).
 FUTURE_WINDOW_LENGTH = 30
 
-# Slope to use when classifying buy/sell labels.
-buy_sell_slope = 1
+# Proportional change to use when classifying buy/sell labels.
+percent_change_slope = 0.1
 
 
 def buy_sell_label(data: pd.DataFrame, index: int, col: str, mi: float, scale: float):
@@ -77,9 +77,9 @@ def buy_sell_label(data: pd.DataFrame, index: int, col: str, mi: float, scale: f
     slope, intercept = best_fit_line_through_today_price(
         today_price, next_prices)
     delta = FUTURE_WINDOW_LENGTH * slope / today_price
-    if delta <= -0.1:
+    if delta <= -percent_change_slope:
         return np.array([0, 0, 1])
-    elif -0.1 < delta < 0.1:
+    elif -percent_change_slope < delta < percent_change_slope:
         return np.array([1, 0, 0])
     else:
         return np.array([0, 1, 0])

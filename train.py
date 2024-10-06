@@ -3,12 +3,11 @@
 import numpy as np
 import pandas as pd
 from common import *
-from collections import Counter
 from sklearn.model_selection import train_test_split
 import tensorflow as tf
 from keras import Model
 from keras.api.models import Sequential, load_model
-from keras.api.layers import LSTM, Dense, Input, MultiHeadAttention, Add, LayerNormalization, Permute, Concatenate, Flatten
+from keras.api.layers import LSTM, Dense, Input, MultiHeadAttention, Add, LayerNormalization, Permute, Flatten
 from keras_nlp.api.layers import SinePositionEncoding
 from keras.api.initializers import HeNormal
 from keras.api.optimizers import RMSprop
@@ -284,8 +283,6 @@ if __name__ == '__main__':
 
         # Train!
         lr_scheduler = ReduceLROnPlateau(monitor='loss', factor=0.5, patience=5, min_lr = 1e-7)
-        # class_proportions = Counter(y_train.argmax(axis=1))
-        # class_weights = {i: X.shape[0]/class_proportions[i] for i in class_proportions}
         model.fit(X_train, y_train, epochs=args.epochs, batch_size=512,
                   validation_data=(X_val, y_val), 
                   callbacks=[lr_scheduler])
