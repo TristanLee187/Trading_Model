@@ -313,7 +313,7 @@ def ticker_class_model_eval(model_path: str, model_arch: str, ticker: str, time_
     prices = data['Close'].iloc[WINDOW_LENGTH:]
 
     # Plot ground truth prices
-    fig, (ax1, ax2) = plt.subplots(1, 2, sharey=True, figsize=(14, 8))
+    fig, (ax1, ax2) = plt.subplots(1, 2, sharey=True, figsize=(18, 8))
     ax1.plot(time_col, prices, "k", label="Close")
     ax2.plot(time_col, prices, "k", label="Close")
 

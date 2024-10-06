@@ -25,3 +25,4 @@ Fourth working model: different features; Random Forests
 - Rework features: add some more (RSI, percent changes) and change normalization scheme (use close price to normalize everything else in a sequence EXCEPT "fixed range" scores: RSI, osciallator, and percent change).
 - Random Forest: just flatten each 2D sequence into 1D, ok results (around 5% average return).
 - Retrain transformer on the new features, ok results (5-6% average return).
+- Use 2 transformer blocks, RMSProp, and different batch size, good results (10-11% average return).
