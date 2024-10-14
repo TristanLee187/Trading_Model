@@ -69,7 +69,9 @@ def build_daily_dataset(ticker: str, start_date: date, end_date: date):
     # Join with fundamentals data
     fund_data = pd.read_csv("daily_market_data/quarterly_earnings.csv")
     ticker_fund_data = fund_data[fund_data['symbol'] == ticker]
-    data = data.merge(ticker_fund_data).drop(columns=['symbol'])
+    # Extract the dates to be used for filtering later
+    dates = data.index.copy()
+    data = data.merge(ticker_fund_data, how="left").drop(columns=['symbol'])
     data.fillna(0, inplace=True)
 
     # Smooth quarterly data over the next few days
@@ -79,10 +81,7 @@ def build_daily_dataset(ticker: str, start_date: date, end_date: date):
 
     # Filter out rows with null values and whose dates are before the requested start_date
     data = data.dropna()
-    data = data[data.index.date >= start_date]
-
-    # Remove the "Date" index.
-    data.reset_index(drop=True, inplace=True)
+    data = data[dates >= start_date]
 
     return data
 
