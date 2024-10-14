@@ -109,6 +109,6 @@ def rsi(series: pd.Series, size: int):
     gains, losses = np.maximum(change, 0), np.minimum(change, 0)
     avg_gains, avg_losses = sma(gains, size), sma(losses, size)
     rs = avg_gains / np.maximum(np.abs(avg_losses), 1e-7)
-    raw_rsi = 100 - 100 / (1 + rs)
+    raw_rsi = 1 - 1 / (1 + rs)
     smooth_rsi = sma(raw_rsi, size)
     return smooth_rsi

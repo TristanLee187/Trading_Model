@@ -85,11 +85,11 @@ def buy_sell_label(data: pd.DataFrame, index: int, col: str, mi: float, scale: f
 
 
 # Columns from CSV files to keep out of the training data.
-ignore_cols = ['Open', 'High', 'Low',
-               'Adj Close', 'Year', 'Month', 'Day', 'Ticker']
+ignore_cols = ['Open', 'High', 'Low', 'Adj Close', 'Year', 'Month', 'Day', 'Ticker']
 
 # Columns to not normalize (using the closing price) for the training data.
-keep_cols = ['Proportional_Change', 'Stochastic_Oscillator', 'RSI', 'Volume']
+keep_cols = ['Proportional_Change', 'Stochastic_Oscillator', 'RSI', 'Volume',
+             'estimate_EPS', 'report_EPS', 'surprise_percent']
 
 
 def prepare_model_data(data: pd.DataFrame, label: str, col: str):
@@ -147,10 +147,16 @@ def prepare_model_data(data: pd.DataFrame, label: str, col: str):
 
         # Normalize by translation and scaling (moving averages)
         sequence_1 = (sequence.drop(columns=keep_cols + no_translate_cols) - mi) * scale
+
         # Normalize by just scaling (divergence)
         sequence_2 = sequence[no_translate_cols] * scale
+
+        # Custom normalization
+        sequence_3 = sequence[keep_cols]
+        sequence_3['Volume'] /= sequence_3['Volume'].max()
+
         sequence = pd.concat(
-            [sequence_1, sequence_2, sequence[keep_cols]],
+            [sequence_1, sequence_2, sequence_3],
             axis=1).to_numpy()
 
         X.append(sequence)

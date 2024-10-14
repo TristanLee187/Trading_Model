@@ -179,3 +179,8 @@ exploration/
 
 # Dev plots
 plots/v7/
+
+# Alpha Vantage fundamental data
+alpha_vantage_api_key.py
+earnings.json
+fundamentals.py

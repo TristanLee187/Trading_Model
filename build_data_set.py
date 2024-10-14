@@ -72,6 +72,17 @@ def build_daily_dataset(ticker: str, start_date: date, end_date: date):
 
     # Remove the "Date" index.
     data.reset_index(drop=True, inplace=True)
+    
+    # Join with fundamentals data
+    fund_data = pd.read_csv("daily_market_data/quarterly_earnings.csv")
+    ticker_fund_data = fund_data[fund_data['symbol'] == ticker]
+    data = data.merge(ticker_fund_data).drop(columns=['symbol'])
+    data.fillna(0, inplace=True)
+
+    # Smooth quarterly data over the next few days
+    data['estimate_EPS'] = ind.ema(data['estimate_EPS'], size=4)
+    data['report_EPS'] = ind.ema(data['report_EPS'], size=4)
+    data['surprise_percent'] = ind.ema(data['surprise_percent'], size=4)
 
     return data
 
