@@ -38,7 +38,7 @@ def build_eval_data(ticker: str, time_interval: str, start_date: date, end_date:
         time_col = pd.to_datetime(data[['Year', 'Month', 'Day']]).dt.date
         # Cut off dates that are too early
         for i in range(len(data)):
-            if time_col[i+WINDOW_LENGTH] >= start_date:
+            if time_col.iloc[i+WINDOW_LENGTH] >= start_date:
                 data = data[i:]
                 break
         time_col = time_col[time_col >= start_date]

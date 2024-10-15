@@ -266,13 +266,13 @@ if __name__ == '__main__':
             model.compile(optimizer='adam', loss=args.error)
         elif args.label == 'signal':
             model.compile(
-                optimizer=RMSprop(learning_rate=0.001),
+                optimizer=RMSprop(learning_rate=0.0001),
                 loss=custom_categorical_crossentropy, 
                 metrics=[F1Score()])
 
         # Train!
         lr_scheduler = ReduceLROnPlateau(monitor='loss', factor=0.5, patience=5, min_lr = 1e-7)
-        model.fit(X_train, y_train, epochs=args.epochs, batch_size=32,
+        model.fit(X_train, y_train, epochs=args.epochs, batch_size=1024,
                   validation_data=(X_val, y_val), 
                   callbacks=[lr_scheduler])
         
