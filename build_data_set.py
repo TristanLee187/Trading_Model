@@ -69,10 +69,12 @@ def build_daily_dataset(ticker: str, start_date: date, end_date: date):
     # Join with fundamentals data
     fund_data = pd.read_csv("daily_market_data/quarterly_earnings.csv")
     ticker_fund_data = fund_data[fund_data['symbol'] == ticker]
+    ticker_fund_data.fillna(0, inplace=True)
+    # Resolve same day reports by taking the average
+    ticker_fund_data.groupby(['Year', 'Month', 'Day'], as_index=False).mean()
     # Extract the dates to be used for filtering later
-    dates = data.index.copy()
+    dates = data.index.date.copy()
     data = data.merge(ticker_fund_data, how="left").drop(columns=['symbol'])
-    data.fillna(0, inplace=True)
 
     # Smooth quarterly data over the next few days
     data['estimate_EPS'] = ind.ema(data['estimate_EPS'], size=4)
@@ -80,8 +82,8 @@ def build_daily_dataset(ticker: str, start_date: date, end_date: date):
     data['surprise_percent'] = ind.ema(data['surprise_percent'], size=4)
 
     # Filter out rows with null values and whose dates are before the requested start_date
-    data = data.dropna()
     data = data[dates >= start_date]
+    data = data.dropna()
 
     return data
 
