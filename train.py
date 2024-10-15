@@ -235,6 +235,10 @@ if __name__ == '__main__':
                         help='error (loss) function to use (required for regression, ignored if classification)')
     parser.add_argument('-r', '--resume', type=str,
                         help='if set, path to a model to resume training on (only works for NNs)')
+    parser.add_argument('-b', '--batch_size', type=int,
+                        help='batch size (defaults to 32)')
+    parser.add_argument('-s', '--learning_rate', type=float,
+                        help='learning rate (defaults to 0.001)')
     parser.add_argument('-p', '--epochs', type=int,
                         help='number of training epochs for the NN models (defaults to 20)')
     args = parser.parse_args()
@@ -266,13 +270,13 @@ if __name__ == '__main__':
             model.compile(optimizer='adam', loss=args.error)
         elif args.label == 'signal':
             model.compile(
-                optimizer=RMSprop(learning_rate=0.0001),
+                optimizer=RMSprop(learning_rate=(args.learning_rate if args.learning_rate is not None else 0.001)),
                 loss=custom_categorical_crossentropy, 
                 metrics=[F1Score()])
 
         # Train!
         lr_scheduler = ReduceLROnPlateau(monitor='loss', factor=0.5, patience=5, min_lr = 1e-7)
-        model.fit(X_train, y_train, epochs=args.epochs, batch_size=1024,
+        model.fit(X_train, y_train, epochs=args.epochs, batch_size=(args.batch_size if args.batch_size is not None else 32),
                   validation_data=(X_val, y_val), 
                   callbacks=[lr_scheduler])
         

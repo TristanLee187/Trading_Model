@@ -79,7 +79,8 @@ def build_daily_dataset(ticker: str, start_date: date, end_date: date):
     # Smooth quarterly data over the next few days    
     data['estimate_EPS'] = ind.ema(data['estimate_EPS'], size=4)
     data['report_EPS'] = ind.ema(data['report_EPS'], size=4)
-    data['surprise_percent'] = ind.ema(data['surprise_percent'], size=4)
+    # Emphasize surprise percent a bit more
+    data['surprise_percent'] = 10*ind.ema(data['surprise_percent'], size=4)
 
     # Filter out rows with null values and whose dates are before the requested start_date
     data = data[dates >= start_date]
