@@ -164,11 +164,11 @@ def get_transformer_model(shape: tuple, label: str):
             num_heads=num_heads, key_dim=key_dim, kernel_initializer=HeNormal(),
             dropout=0.1)(x, x)
         x = Add()([x, attn_layer])
-        x = LayerNormalization(epsilon=1e-6)(x)
+        x = LayerNormalization(epsilon=1e-8)(x)
         ff = Dense(ff_dim_2, kernel_initializer=HeNormal(), activation='relu')(
             Dense(ff_dim_1, kernel_initializer=HeNormal(), activation='relu')(x))
         x = Add()([x, ff])
-        x = LayerNormalization(epsilon=1e-6)(x)
+        x = LayerNormalization(epsilon=1e-8)(x)
         return x
 
     # Stack of Transformer blocks
@@ -179,23 +179,12 @@ def get_transformer_model(shape: tuple, label: str):
         return x
 
     # Define the Transformer model
-    # Get inputs as both temporal and feature sequences
     input_layer = Input(shape=shape)
-    transposed_input_layer = Permute((2, 1))(input_layer)
-    # Apply transformer stacks to both of them
-    temporal_transformer_layer = transformer_stack(
-        input_layer, num_heads=4, key_dim=8, ff_dim_1=64, ff_dim_2=shape[1], num_blocks=2)
-    feature_transformer_layer = transformer_stack(
-        transposed_input_layer, num_heads=4, key_dim=8, ff_dim_1=128, ff_dim_2=shape[0], num_blocks=2)
-    # Add them together
-    combined_layer = Add()([
-        temporal_transformer_layer, Permute((2, 1))(feature_transformer_layer)
-    ])
-    # Apply transformer stacks to the concatenation
-    combined_transformer_layer = transformer_stack(
-        combined_layer, num_heads=4, key_dim=8, ff_dim_1=128, ff_dim_2=shape[1], num_blocks=2)
+    # Apply transformer stacks
+    transformer_blocks = transformer_stack(
+        input_layer, num_heads=4, key_dim=8, ff_dim_1=64, ff_dim_2=shape[1], num_blocks=4)
     # Pool
-    pooling_layer = Flatten()(combined_transformer_layer)
+    pooling_layer = Flatten()(transformer_blocks)
     # Output
     dense_layer_1 = Dense(units=256, kernel_initializer=HeNormal(), activation='relu')(pooling_layer)
     dense_layer_2 = Dense(units=64, kernel_initializer=HeNormal(), activation='relu')(dense_layer_1)
@@ -283,7 +272,7 @@ if __name__ == '__main__':
 
         # Train!
         lr_scheduler = ReduceLROnPlateau(monitor='loss', factor=0.5, patience=5, min_lr = 1e-7)
-        model.fit(X_train, y_train, epochs=args.epochs, batch_size=512,
+        model.fit(X_train, y_train, epochs=args.epochs, batch_size=32,
                   validation_data=(X_val, y_val), 
                   callbacks=[lr_scheduler])
         

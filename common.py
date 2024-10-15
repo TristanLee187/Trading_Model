@@ -19,7 +19,7 @@ sp_100_tickers = ['AAPL', 'ABBV', 'ABT', 'ACN', 'ADBE', 'AIG', 'AMD', 'AMGN', 'A
 tickers = sp_100_tickers
 
 # Version folder to save models and plots to.
-VERSION = 'final'
+VERSION = 'v8'
 
 # Number of time points to use in defining sequence data.
 WINDOW_LENGTH = 30
