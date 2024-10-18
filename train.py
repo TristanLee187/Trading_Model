@@ -95,7 +95,7 @@ def custom_categorical_crossentropy(y_true, y_pred):
     weights = tf.constant([
         [0.0, 2.0, 2.0],
         [3.0, 0.0, 10.0],
-        [4.0, 12.0, 0.0]
+        [3.0, 10.0, 0.0]
     ])
 
     y_pred = tf.clip_by_value(y_pred, 1e-7, 1.0)

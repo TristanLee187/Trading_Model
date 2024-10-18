@@ -173,38 +173,38 @@ def all_tickers_class_model_eval(model_path: str, model_arch: str, time_interval
     """
     # Compute the profit/loss of predictions given ground truth prices, as well as
     # the number of total actions to use as a "confidence" weight.
-    def ticker_class_buy_sell_eval(predicted_actions, prices):
+    def ticker_class_buy_sell_eval(predicted_actions, y_probs, prices):
         cost = 0
+        cost_basis = 0
         revenue = 0
         count = 0
-        confidence = 0
         for i in range(len(prices)):
             # Check if there are potential actions
             if i < len(predicted_actions):
-                action = predicted_actions[i]
+                action, probs = predicted_actions[i], y_probs[i]
                 # Buy
                 if action == 1:
                     cost += prices[i]
+                    cost_basis += prices[i]
                     count += 1
-                    confidence += 1
                 # Sell
-                elif action == 2:
+                elif action == 2 and count>0 and (probs[2]>0.5 or prices[i]>cost_basis/count):
                     revenue += count * prices[i]
                     count = 0
-                    confidence += 1
+                    cost_basis = 0
 
             # Close out the last position
             elif i == len(prices) - 1:
                 revenue += count * prices[i]
 
-        # Return percentage performance (positive for gain, negative for loss, 0 if no actions were taken)
-        if cost == 0:
-            return 0, confidence
-        delta = revenue - cost
-        return delta / cost, confidence
+        # Return cost and revenue
+        return cost, revenue
+    
+    def sign_blank_or_negative(x):
+        return "" if x>=0 else "-"
 
-    average_performance = 0
-    total_confidence = 0
+    total_cost = 0
+    total_revenue = 0
     performance_output = ''
 
     if model_arch in ['LSTM', 'transformer']:
@@ -229,25 +229,30 @@ def all_tickers_class_model_eval(model_path: str, model_arch: str, time_interval
 
         # Convert one-hot predictions to classes (0 for do nothing, 1 for buy, 2 for sell)
         if model_arch != 'forest':
-            y_predictions = np.argmax(y_predictions, axis=1)
+            y_actions = np.argmax(y_predictions, axis=1)
 
-        # Evaluate the decisions against the actual prices
+        # Evaluate the decisions against the actual prices (standardize all prices so that each
+        # ticker starts with price $1)
         prices = data['Close'].iloc[WINDOW_LENGTH:].to_numpy()
-        performance, confidence = ticker_class_buy_sell_eval(
-            y_predictions, prices)
-        average_performance += confidence * performance
-        total_confidence += confidence
+        prices /= prices[0]
+        cost, revenue = ticker_class_buy_sell_eval(
+            y_actions, y_predictions, prices)
+        total_cost += cost
+        total_revenue += revenue
 
         # Record the performance as strings for printing and export
-        performance_string = f'{ticker}: {round(100 * performance, 2)}% return with {confidence} actions'
+        profit = revenue - cost
+        performance_string = f'{ticker}: {sign_blank_or_negative(profit)}${abs(round(profit, 2))} profit from ${round(cost, 2)} cost'
         print(performance_string)
         performance_output += performance_string + '\n'
 
-    # Record the average performance as strings
-    average_performance /= total_confidence
-    average_performance_string = f'Average Return for all Tickers: {round(100 * average_performance, 2)}%'
-    print(average_performance_string)
-    performance_output += '\n' + average_performance_string
+    # Record the total profit and return
+    total_profit = total_revenue - total_cost
+    profit_string = f'{sign_blank_or_negative(total_profit)}${round(total_profit, 2)} total profit from ${round(total_cost, 2)} total cost'
+    return_string = f'Total return for all tickers: {round(100*total_profit/total_cost, 2)}%'
+    print(profit_string)
+    print(return_string)
+    performance_output += '\n' + profit_string + '\n' + return_string
 
     # Export to a text file
     date_string = str(start_date)
@@ -303,13 +308,13 @@ def ticker_class_model_eval(model_path: str, model_arch: str, ticker: str, time_
     # Convert one-hot predictions to classes (0 for do nothing, 1 for buy, 2 for sell)
     y_gt = np.argmax(y_gt, axis=1)
     if model_arch != 'forest':
-        y_predictions = np.argmax(y_predictions, axis=1)
+        y_actions = np.argmax(y_predictions, axis=1)
 
     # Plot the ground truth vs. predictions.
     gt_buy_mask = y_gt == 1
     gt_sell_mask = y_gt == 2
-    buy_mask = y_predictions == 1
-    sell_mask = y_predictions == 2
+    buy_mask = y_actions == 1
+    sell_mask = y_actions == 2
     prices = data['Close'].iloc[WINDOW_LENGTH:]
 
     # Plot ground truth prices
