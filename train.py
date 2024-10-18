@@ -8,12 +8,10 @@ import tensorflow as tf
 from keras import Model
 from keras.api.models import Sequential, load_model
 from keras.api.layers import LSTM, Dense, Input, MultiHeadAttention, Add, LayerNormalization, Permute, Flatten
-from keras_nlp.api.layers import SinePositionEncoding
 from keras.api.initializers import HeNormal
 from keras.api.optimizers import RMSprop
 from keras.api.callbacks import ReduceLROnPlateau
 from keras.api.metrics import F1Score
-from keras.api.utils import custom_object_scope
 from sklearn.ensemble import RandomForestClassifier
 import joblib
 import argparse
@@ -162,7 +160,7 @@ def get_transformer_model(shape: tuple, label: str):
         x = Add()([x, LSTM(units=shape[1], return_sequences=True)(x)])
         attn_layer = MultiHeadAttention(
             num_heads=num_heads, key_dim=key_dim, kernel_initializer=HeNormal(),
-            dropout=0.1)(x, x)
+            dropout=0.2)(x, x)
         x = Add()([x, attn_layer])
         x = LayerNormalization(epsilon=1e-8)(x)
         ff = Dense(ff_dim_2, kernel_initializer=HeNormal(), activation='relu')(
@@ -254,12 +252,12 @@ if __name__ == '__main__':
 
     if args.model in ['LSTM', 'transformer']:
         # Prepare validation data
-        X_train, X_val, y_train, y_val = train_test_split(
-            X, y, test_size=0.1, random_state=42)
+        train_size = int(0.8 * len(X))
+        X_train, X_val = X[:train_size], X[train_size:]
+        y_train, y_val = y[:train_size], y[train_size:]
         # Get appropriate NN architecture
         if args.resume is not None:
-            with custom_object_scope({'SinePositionEncoding': SinePositionEncoding}):
-                model = load_model(args.resume, compile=False)
+            model = load_model(args.resume, compile=False)
         elif args.model == 'LSTM':
             model = get_lstm_model(X[0].shape, args.label)
         else:

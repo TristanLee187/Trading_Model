@@ -5,8 +5,8 @@ import pandas as pd
 from common import *
 from build_data_set import build_daily_dataset, build_minute_dataset
 from keras.api.models import load_model
-from keras_nlp.api.layers import SinePositionEncoding
 from keras.api.utils import custom_object_scope
+from train import custom_categorical_crossentropy
 from datetime import date, timedelta
 import matplotlib.pyplot as plt
 import joblib
@@ -86,8 +86,7 @@ def reg_model_eval(model_path: str, model_arch: str, ticker: str, time_interval:
 
     # Predict
     if model_arch in ['LSTM', 'transformer']:
-        with custom_object_scope({'SinePositionEncoding': SinePositionEncoding}):
-            model = load_model(model_path, compile=False)
+        model = load_model(model_path, compile=False)
     elif model_arch == 'forest':
         model = joblib.load(model_path)
         X = X.reshape(X.shape[0], -1)
@@ -206,10 +205,11 @@ def all_tickers_class_model_eval(model_path: str, model_arch: str, time_interval
     total_cost = 0
     total_revenue = 0
     performance_output = ''
+    total_loss = 0
 
     if model_arch in ['LSTM', 'transformer']:
-        with custom_object_scope({'SinePositionEncoding': SinePositionEncoding}):
-            model = load_model(model_path, compile=False)
+        with custom_object_scope({'custom_categorical_crossentropy': custom_categorical_crossentropy}):
+            model = load_model(model_path)
     elif model_arch == 'forest':
         model = joblib.load(model_path)
 
@@ -226,6 +226,8 @@ def all_tickers_class_model_eval(model_path: str, model_arch: str, time_interval
 
         # Predict
         y_predictions = model.predict(X)
+        loss, *metrics = model.evaluate(X, y_gt)
+        total_loss += loss
 
         # Convert one-hot predictions to classes (0 for do nothing, 1 for buy, 2 for sell)
         if model_arch != 'forest':
@@ -253,6 +255,7 @@ def all_tickers_class_model_eval(model_path: str, model_arch: str, time_interval
     print(profit_string)
     print(return_string)
     performance_output += '\n' + profit_string + '\n' + return_string
+    print(f"Total loss: {total_loss/len(tickers)}")
 
     # Export to a text file
     date_string = str(start_date)
@@ -298,8 +301,7 @@ def ticker_class_model_eval(model_path: str, model_arch: str, ticker: str, time_
 
     # Predict
     if model_arch in ['LSTM', 'transformer']:
-        with custom_object_scope({'SinePositionEncoding': SinePositionEncoding}):
-            model = load_model(model_path, compile=False)
+        model = load_model(model_path, compile=False)
     elif model_arch == 'forest':
         model = joblib.load(model_path)
         X = X.reshape(X.shape[0], -1)
