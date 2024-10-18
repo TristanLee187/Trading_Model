@@ -7,7 +7,6 @@ from common import tickers
 import argparse
 import pandas as pd
 
-
 def build_daily_dataset(ticker: str, start_date: date, end_date: date):
     """
     Build a DataFrame containing daily market data of a ticker between 2 dates.
@@ -71,16 +70,21 @@ def build_daily_dataset(ticker: str, start_date: date, end_date: date):
     ticker_fund_data = fund_data[fund_data['symbol'] == ticker].drop(columns=['symbol'])
     # Resolve same day reports by taking the average
     ticker_fund_data = ticker_fund_data.groupby(['Year', 'Month', 'Day'], as_index=False).mean()
+    # Fix some values
+    ticker_fund_data['estimate_EPS'] = ticker_fund_data['estimate_EPS'].replace(0, None).ffill()
+    ticker_fund_data['report_EPS'] = ticker_fund_data['report_EPS'].replace(0, None).ffill()
+    ticker_fund_data['surprise_percent'] = (ticker_fund_data['report_EPS'] - ticker_fund_data['estimate_EPS'])/ticker_fund_data['estimate_EPS']
     # Extract the dates to be used for filtering later
     dates = data.index.date.copy()
     data = data.merge(ticker_fund_data, how="left")
-    data.fillna(0, inplace=True)
-
-    # Smooth quarterly data over the next few days    
+    # P/E ratio
+    data['PE'] = data['Close'] / data['report_EPS'].ffill()
+    # Smooth EPS data slightly
     data['estimate_EPS'] = ind.ema(data['estimate_EPS'], size=4)
     data['report_EPS'] = ind.ema(data['report_EPS'], size=4)
-    # Emphasize surprise percent a bit more
-    data['surprise_percent'] = 10*ind.ema(data['surprise_percent'], size=4)
+    data['surprise_percent'] = ind.ema(data['surprise_percent'], size=4)
+
+    data.fillna(0, inplace=True)
 
     # Filter out rows with null values and whose dates are before the requested start_date
     data = data[dates >= start_date]

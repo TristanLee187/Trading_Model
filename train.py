@@ -95,7 +95,7 @@ def custom_categorical_crossentropy(y_true, y_pred):
     weights = tf.constant([
         [0.0, 2.0, 2.0],
         [3.0, 0.0, 10.0],
-        [3.0, 10.0, 0.0]
+        [4.0, 12.0, 0.0]
     ])
 
     y_pred = tf.clip_by_value(y_pred, 1e-7, 1.0)
@@ -157,9 +157,9 @@ def get_transformer_model(shape: tuple, label: str):
     Returns:
         keras.Model: Model with an transformer and LSTM architecture.
     """
-    # Transformer block
+    # Transformer block (with LSTM position encoding)
     def transformer_block(x, num_heads, key_dim, ff_dim_1, ff_dim_2):
-        x = Add()([x, SinePositionEncoding()(x)])
+        x = Add()([x, LSTM(units=shape[1], return_sequences=True)(x)])
         attn_layer = MultiHeadAttention(
             num_heads=num_heads, key_dim=key_dim, kernel_initializer=HeNormal(),
             dropout=0.1)(x, x)
@@ -255,7 +255,7 @@ if __name__ == '__main__':
     if args.model in ['LSTM', 'transformer']:
         # Prepare validation data
         X_train, X_val, y_train, y_val = train_test_split(
-            X, y, test_size=0.2, random_state=0)
+            X, y, test_size=0.1, random_state=42)
         # Get appropriate NN architecture
         if args.resume is not None:
             with custom_object_scope({'SinePositionEncoding': SinePositionEncoding}):

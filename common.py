@@ -89,7 +89,7 @@ ignore_cols = ['Open', 'High', 'Low', 'Adj Close', 'Year', 'Month', 'Day', 'Tick
 
 # Columns to not normalize (using the closing price) for the training data.
 keep_cols = ['Proportional_Change', 'Stochastic_Oscillator', 'RSI', 'Volume',
-             'estimate_EPS', 'report_EPS', 'surprise_percent']
+             'estimate_EPS', 'report_EPS', 'surprise_percent', 'PE']
 
 
 def prepare_model_data(data: pd.DataFrame, label: str, col: str):
@@ -135,7 +135,6 @@ def prepare_model_data(data: pd.DataFrame, label: str, col: str):
     mins = local_data[col].rolling(wl).min()
     maxes = local_data[col].rolling(wl).max()
 
-    # Iterate through every sequence (sliding window) in the data
     for i in range(len(data) - wl - right_offset):
         sequence = local_data.iloc[i:i+wl]
 
@@ -153,7 +152,10 @@ def prepare_model_data(data: pd.DataFrame, label: str, col: str):
 
         # Custom normalization
         sequence_3 = sequence[keep_cols]
+        # Scale volume by max
         sequence_3['Volume'] /= sequence_3['Volume'].max()
+        # Sigmoid PE
+        sequence_3['PE'] = 1/(1 + np.exp(sequence_3['PE']/100))
 
         sequence = pd.concat(
             [sequence_1, sequence_2, sequence_3],

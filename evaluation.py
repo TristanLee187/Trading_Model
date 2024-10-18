@@ -177,7 +177,7 @@ def all_tickers_class_model_eval(model_path: str, model_arch: str, time_interval
         cost = 0
         revenue = 0
         count = 0
-        confidence = 1
+        confidence = 0
         for i in range(len(prices)):
             # Check if there are potential actions
             if i < len(predicted_actions):
@@ -239,7 +239,7 @@ def all_tickers_class_model_eval(model_path: str, model_arch: str, time_interval
         total_confidence += confidence
 
         # Record the performance as strings for printing and export
-        performance_string = f'{ticker}: {round(100 * performance, 2)}% return with {confidence-1} actions'
+        performance_string = f'{ticker}: {round(100 * performance, 2)}% return with {confidence} actions'
         print(performance_string)
         performance_output += performance_string + '\n'
 
