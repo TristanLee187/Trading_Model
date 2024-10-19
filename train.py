@@ -252,9 +252,8 @@ if __name__ == '__main__':
 
     if args.model in ['LSTM', 'transformer']:
         # Prepare validation data
-        train_size = int(0.8 * len(X))
-        X_train, X_val = X[:train_size], X[train_size:]
-        y_train, y_val = y[:train_size], y[train_size:]
+        X_train, X_val, y_train, y_val = train_test_split(
+                X, y, test_size=0.2, random_state=42)
         # Get appropriate NN architecture
         if args.resume is not None:
             model = load_model(args.resume, compile=False)
