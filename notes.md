@@ -26,3 +26,7 @@ Fourth working model: different features; Random Forests
 - Random Forest: just flatten each 2D sequence into 1D, ok results (around 5% average return).
 - Retrain transformer on the new features, ok results (5-6% average return).
 - Use 2 transformer blocks, RMSProp, and different batch size, good results (10-11% average return).
+
+Fifth model: use fundamental data (EPS, PE)
+- Calculate the PE for each day, and forward fill the EPS reported on some day to future days (exponentially decaying weighted average, though).
+- Also use LSTMs in the positional encoding for each transformer block.

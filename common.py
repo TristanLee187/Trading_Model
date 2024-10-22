@@ -28,7 +28,7 @@ WINDOW_LENGTH = 30
 FUTURE_WINDOW_LENGTH = 30
 
 # Proportional change to use when classifying buy/sell labels.
-percent_change_slope = 0.1
+percent_change_slope = 0.15
 
 
 def buy_sell_label(data: pd.DataFrame, index: int, col: str, mi: float, scale: float):
@@ -44,9 +44,11 @@ def buy_sell_label(data: pd.DataFrame, index: int, col: str, mi: float, scale: f
 
     Returns:
         numpy.array: One-hot encoded vector for the signal:
-            - Do nothing: [0,0,1]
-            - Buy: [1,0,0]
-            - Sell: [0,1,0]
+            - Strong sell: [1,0,0,0,0]
+            - Weak sell: [0,1,0,0,0]
+            - Do nothing: [0,0,1,0,0]
+            - Weak buy: [0,0,0,1,0]
+            - Strong buy: [0,0,0,0,1]
     """
     wl, fwl = WINDOW_LENGTH, FUTURE_WINDOW_LENGTH
     # Throw exception if out of bounds
@@ -69,19 +71,23 @@ def buy_sell_label(data: pd.DataFrame, index: int, col: str, mi: float, scale: f
 
     # Choose a label depending on the slope of the constrained regression line using the next
     # FUTURE_WINDOW_LENGTH time steps.
-    # [1,0,0] for do nothing, [0,1,0] for buy, [0,0,1] for sell.
     today_price = (data[col].iloc[index+wl-1])
     next_prices = (
         data[col].iloc[index+wl: index+wl+fwl])
     slope, intercept = best_fit_line_through_today_price(
         today_price, next_prices)
     delta = FUTURE_WINDOW_LENGTH * slope / today_price
+
     if delta <= -percent_change_slope:
-        return np.array([0, 0, 1])
-    elif -percent_change_slope < delta < percent_change_slope:
-        return np.array([1, 0, 0])
+        return np.array([1, 0, 0, 0, 0])
+    elif delta <= -percent_change_slope/2:
+        return np.array([0, 1, 0, 0, 0])
+    elif delta <= percent_change_slope/2:
+        return np.array([0, 0, 1, 0, 0])
+    elif delta <= percent_change_slope:
+        return np.array([0, 0, 0, 1, 0])
     else:
-        return np.array([0, 1, 0])
+        return np.array([0, 0, 0, 0, 1])
 
 
 # Columns from CSV files to keep out of the training data.

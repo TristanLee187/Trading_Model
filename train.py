@@ -91,9 +91,11 @@ def custom_categorical_crossentropy(y_true, y_pred):
     """
     # weights[i][j]: penalty for if the ground truth was i but the predicted was j.
     weights = tf.constant([
-        [0.0, 2.0, 2.0],
-        [3.0, 0.0, 10.0],
-        [3.0, 10.0, 0.0]
+        [0.0, 1.0, 5.0, 10.0, 15.0],
+        [1.0, 0.0, 3.0, 7.0, 10.0],
+        [5.0, 2.0, 0.0, 2.0, 5.0],
+        [10.0, 7.0, 3.0, 0.0, 1.0],
+        [15.0, 10.0, 5.0, 1.0, 0.0],
     ])
 
     y_pred = tf.clip_by_value(y_pred, 1e-7, 1.0)
@@ -114,12 +116,12 @@ def last_layer(label: str):
     Returns:
         keras.layers.Layer: Keras layer to use for the model's output:
             - "price" (regression): A Dense layer with 1 unit and sigmoid activiation.
-            - "signal" (classification): A Dense layer with 3 units and softmax activation.
+            - "signal" (classification): A Dense layer with 5 units and softmax activation.
     """
     if label == 'price':
         return Dense(units=1)
     elif label == 'signal':
-        return Dense(units=3, activation='softmax')
+        return Dense(units=5, activation='softmax')
 
 
 def get_lstm_model(shape: tuple, label: str):

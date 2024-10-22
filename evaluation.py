@@ -170,9 +170,8 @@ def all_tickers_class_model_eval(model_path: str, model_arch: str, time_interval
         percentage gain/loss. Also, print out the average gain/loss for all tickers. weighted by the number
         of actions (buy/sell) made for that ticker. Export these results to a text file as well.
     """
-    # Compute the profit/loss of predictions given ground truth prices, as well as
-    # the number of total actions to use as a "confidence" weight.
-    def ticker_class_buy_sell_eval(predicted_actions, y_probs, prices):
+    # Compute the profit/loss of predictions given ground truth prices.
+    def ticker_class_buy_sell_eval(predicted_actions, prices):
         cost = 0
         cost_basis = 0
         revenue = 0
@@ -180,14 +179,14 @@ def all_tickers_class_model_eval(model_path: str, model_arch: str, time_interval
         for i in range(len(prices)):
             # Check if there are potential actions
             if i < len(predicted_actions):
-                action, probs = predicted_actions[i], y_probs[i]
+                action = predicted_actions[i]
                 # Buy
-                if action == 1:
+                if action in [3, 4]:
                     cost += prices[i]
                     cost_basis += prices[i]
                     count += 1
                 # Sell
-                elif action == 2 and count>0 and (probs[2]>0.5 or prices[i]>cost_basis/count):
+                elif action in [0, 1]:
                     revenue += count * prices[i]
                     count = 0
                     cost_basis = 0
