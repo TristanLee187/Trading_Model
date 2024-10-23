@@ -237,7 +237,7 @@ def all_tickers_class_model_eval(model_path: str, model_arch: str, time_interval
         prices = data['Close'].iloc[WINDOW_LENGTH:].to_numpy()
         prices /= prices[0]
         cost, revenue = ticker_class_buy_sell_eval(
-            y_actions, y_predictions, prices)
+            y_actions, prices)
         total_cost += cost
         total_revenue += revenue
 
@@ -253,7 +253,7 @@ def all_tickers_class_model_eval(model_path: str, model_arch: str, time_interval
     return_string = f'Total return for all tickers: {round(100*total_profit/total_cost, 2)}%'
     print(profit_string)
     print(return_string)
-    performance_output += '\n' + profit_string + '\n' + return_string
+    performance_output += '\n' + profit_string + '\n' + return_string + '\n'
     print(f"Total loss: {total_loss/len(tickers)}")
 
     # Export to a text file

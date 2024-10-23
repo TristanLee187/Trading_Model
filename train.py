@@ -93,9 +93,9 @@ def custom_categorical_crossentropy(y_true, y_pred):
     weights = tf.constant([
         [0.0, 1.0, 5.0, 10.0, 15.0],
         [1.0, 0.0, 3.0, 7.0, 10.0],
-        [5.0, 2.0, 0.0, 2.0, 5.0],
-        [10.0, 7.0, 3.0, 0.0, 1.0],
-        [15.0, 10.0, 5.0, 1.0, 0.0],
+        [6.0, 3.0, 0.0, 2.0, 5.0],
+        [11.0, 8.0, 3.0, 0.0, 1.0],
+        [16.0, 11.0, 5.0, 1.0, 0.0],
     ])
 
     y_pred = tf.clip_by_value(y_pred, 1e-7, 1.0)
@@ -182,7 +182,7 @@ def get_transformer_model(shape: tuple, label: str):
     input_layer = Input(shape=shape)
     # Apply transformer stacks
     transformer_blocks = transformer_stack(
-        input_layer, num_heads=4, key_dim=8, ff_dim_1=64, ff_dim_2=shape[1], num_blocks=4)
+        input_layer, num_heads=4, key_dim=8, ff_dim_1=64, ff_dim_2=shape[1], num_blocks=2)
     # Pool
     pooling_layer = Flatten()(transformer_blocks)
     # Output
