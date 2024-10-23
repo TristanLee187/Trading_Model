@@ -155,7 +155,7 @@ def get_transformer_model(shape: tuple, label: str):
         label (str):  The label type to train on.
 
     Returns:
-        keras.Model: Model with an transformer and LSTM architecture.
+        keras.Model: Model with a transformer-LSTM architecture.
     """
     # Transformer block (with LSTM position encoding)
     def transformer_block(x, num_heads, key_dim, ff_dim_1, ff_dim_2):
@@ -180,11 +180,21 @@ def get_transformer_model(shape: tuple, label: str):
 
     # Define the Transformer model
     input_layer = Input(shape=shape)
+    transposed_input_layer = Permute((2, 1))(input_layer)
     # Apply transformer stacks
-    transformer_blocks = transformer_stack(
-        input_layer, num_heads=4, key_dim=8, ff_dim_1=64, ff_dim_2=shape[1], num_blocks=2)
+    temporal_transformer_blocks = transformer_stack(
+        input_layer, num_heads=4, key_dim=6, ff_dim_1=64, ff_dim_2=shape[1], num_blocks=2)
+    feature_transformer_blocks = transformer_stack(
+        transposed_input_layer, num_heads=4, key_dim=8, ff_dim_1=64, ff_dim_2=shape[0], num_blocks=2)
+    # Add them together
+    combined_layer = Add()([
+        temporal_transformer_blocks, Permute((2, 1))(feature_transformer_blocks)
+    ])
+    # Apply transformer stacks to the combination
+    combined_transformer_blocks = transformer_stack(
+        combined_layer, num_heads=4, key_dim=6, ff_dim_1=64, ff_dim_2=shape[1], num_blocks=2)
     # Pool
-    pooling_layer = Flatten()(transformer_blocks)
+    pooling_layer = Flatten()(combined_transformer_blocks)
     # Output
     dense_layer_1 = Dense(units=256, kernel_initializer=HeNormal(), activation='relu')(pooling_layer)
     dense_layer_2 = Dense(units=64, kernel_initializer=HeNormal(), activation='relu')(dense_layer_1)
