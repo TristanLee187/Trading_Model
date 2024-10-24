@@ -159,7 +159,7 @@ def get_transformer_model(shape: tuple, label: str):
     """
     # Transformer block (with LSTM position encoding)
     def transformer_block(x, num_heads, key_dim, ff_dim_1, ff_dim_2):
-        x = Add()([x, LSTM(units=shape[1], return_sequences=True)(x)])
+        x = Add()([x, LSTM(units=x.shape[2], return_sequences=True)(x)])
         attn_layer = MultiHeadAttention(
             num_heads=num_heads, key_dim=key_dim, kernel_initializer=HeNormal(),
             dropout=0.2)(x, x)

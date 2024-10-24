@@ -181,12 +181,12 @@ def all_tickers_class_model_eval(model_path: str, model_arch: str, time_interval
             if i < len(predicted_actions):
                 action = predicted_actions[i]
                 # Buy
-                if action in [3, 4]:
+                if action == 2:
                     cost += prices[i]
                     cost_basis += prices[i]
                     count += 1
                 # Sell
-                elif action in [0, 1]:
+                elif action == 0:
                     revenue += count * prices[i]
                     count = 0
                     cost_basis = 0
@@ -312,10 +312,10 @@ def ticker_class_model_eval(model_path: str, model_arch: str, ticker: str, time_
         y_actions = np.argmax(y_predictions, axis=1)
 
     # Plot the ground truth vs. predictions.
-    gt_buy_mask = y_gt == 1
-    gt_sell_mask = y_gt == 2
-    buy_mask = y_actions == 1
-    sell_mask = y_actions == 2
+    gt_buy_mask = y_gt == 2
+    gt_sell_mask = y_gt == 0
+    buy_mask = y_actions == 2
+    sell_mask = y_actions == 0
     prices = data['Close'].iloc[WINDOW_LENGTH:]
 
     # Plot ground truth prices

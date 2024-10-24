@@ -28,7 +28,7 @@ WINDOW_LENGTH = 30
 FUTURE_WINDOW_LENGTH = 30
 
 # Proportional change to use when classifying buy/sell labels.
-percent_change_slope = 0.15
+percent_change_slope = 0.1
 
 
 def buy_sell_label(data: pd.DataFrame, index: int, col: str, mi: float, scale: float):
@@ -44,11 +44,9 @@ def buy_sell_label(data: pd.DataFrame, index: int, col: str, mi: float, scale: f
 
     Returns:
         numpy.array: One-hot encoded vector for the signal:
-            - Strong sell: [1,0,0,0,0]
-            - Weak sell: [0,1,0,0,0]
-            - Do nothing: [0,0,1,0,0]
-            - Weak buy: [0,0,0,1,0]
-            - Strong buy: [0,0,0,0,1]
+            - Sell: [1,0,0]
+            - Do nothing: [0,1,0]
+            - Buy: [0,0,1]
     """
     wl, fwl = WINDOW_LENGTH, FUTURE_WINDOW_LENGTH
     # Throw exception if out of bounds
@@ -79,15 +77,11 @@ def buy_sell_label(data: pd.DataFrame, index: int, col: str, mi: float, scale: f
     delta = FUTURE_WINDOW_LENGTH * slope / today_price
 
     if delta <= -percent_change_slope:
-        return np.array([1, 0, 0, 0, 0])
-    elif delta <= -percent_change_slope/2:
-        return np.array([0, 1, 0, 0, 0])
-    elif delta <= percent_change_slope/2:
-        return np.array([0, 0, 1, 0, 0])
+        return np.array([1, 0, 0])
     elif delta <= percent_change_slope:
-        return np.array([0, 0, 0, 1, 0])
+        return np.array([0, 1, 0])
     else:
-        return np.array([0, 0, 0, 0, 1])
+        return np.array([0, 0, 1])
 
 
 # Columns from CSV files to keep out of the training data.
