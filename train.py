@@ -91,11 +91,9 @@ def custom_categorical_crossentropy(y_true, y_pred):
     """
     # weights[i][j]: penalty for if the ground truth was i but the predicted was j.
     weights = tf.constant([
-        [0.0, 1.0, 5.0, 10.0, 15.0],
-        [1.0, 0.0, 3.0, 7.0, 10.0],
-        [6.0, 3.0, 0.0, 2.0, 5.0],
-        [11.0, 8.0, 3.0, 0.0, 1.0],
-        [16.0, 11.0, 5.0, 1.0, 0.0],
+        [0.0, 3.0, 10.0],
+        [2.0, 0.0, 2.0],
+        [10.0, 3.0, 0.0],
     ])
 
     y_pred = tf.clip_by_value(y_pred, 1e-7, 1.0)
@@ -121,7 +119,7 @@ def last_layer(label: str):
     if label == 'price':
         return Dense(units=1)
     elif label == 'signal':
-        return Dense(units=5, activation='softmax')
+        return Dense(units=3, activation='softmax')
 
 
 def get_lstm_model(shape: tuple, label: str):
@@ -180,21 +178,16 @@ def get_transformer_model(shape: tuple, label: str):
 
     # Define the Transformer model
     input_layer = Input(shape=shape)
-    transposed_input_layer = Permute((2, 1))(input_layer)
-    # Apply transformer stacks
-    temporal_transformer_blocks = transformer_stack(
-        input_layer, num_heads=4, key_dim=6, ff_dim_1=64, ff_dim_2=shape[1], num_blocks=2)
-    feature_transformer_blocks = transformer_stack(
-        transposed_input_layer, num_heads=4, key_dim=8, ff_dim_1=64, ff_dim_2=shape[0], num_blocks=2)
-    # Add them together
-    combined_layer = Add()([
-        temporal_transformer_blocks, Permute((2, 1))(feature_transformer_blocks)
-    ])
-    # Apply transformer stacks to the combination
-    combined_transformer_blocks = transformer_stack(
-        combined_layer, num_heads=4, key_dim=6, ff_dim_1=64, ff_dim_2=shape[1], num_blocks=2)
+    # Encoder
+    encoder = transformer_stack(
+        input_layer, num_heads=4, key_dim=8, ff_dim_1=128, ff_dim_2=shape[1], num_blocks=2)
+    encoder = Dense(8, kernel_initializer=HeNormal(), activation='relu')(encoder)
+    # Decoder
+    decoder = Dense(shape[1], kernel_initializer=HeNormal(), activation='relu')(encoder)
+    decoder = transformer_stack(
+        decoder, num_heads=4, key_dim=8, ff_dim_1=128, ff_dim_2=shape[1], num_blocks=2)
     # Pool
-    pooling_layer = Flatten()(combined_transformer_blocks)
+    pooling_layer = Flatten()(decoder)
     # Output
     dense_layer_1 = Dense(units=256, kernel_initializer=HeNormal(), activation='relu')(pooling_layer)
     dense_layer_2 = Dense(units=64, kernel_initializer=HeNormal(), activation='relu')(dense_layer_1)
