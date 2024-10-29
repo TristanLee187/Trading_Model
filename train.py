@@ -7,8 +7,7 @@ from sklearn.model_selection import train_test_split
 import tensorflow as tf
 from keras import Model
 from keras.api.models import Sequential, load_model
-from keras.api.layers import LSTM, Dense, Input, MultiHeadAttention, Add, LayerNormalization, Permute, Flatten
-from keras.api.initializers import HeNormal
+from keras.api.layers import LSTM, Dense, Input, MultiHeadAttention, Add, LayerNormalization, Flatten, Layer
 from keras.api.optimizers import RMSprop
 from keras.api.callbacks import ReduceLROnPlateau
 from keras.api.metrics import F1Score
@@ -144,6 +143,46 @@ def get_lstm_model(shape: tuple, label: str):
     return model
 
 
+# Single expert
+class Expert(Layer):
+    def __init__(self, units1, units2):
+        super(Expert, self).__init__()
+        self.dense1 = Dense(units1, activation='gelu')
+        self.dense2 = Dense(units2, activation='gelu')
+    
+    def call(self, inputs):
+        x = self.dense1(inputs)
+        return self.dense2(x)
+    
+
+# Mixture of experts top k layer
+class MoETopKLayer(Layer):
+    def __init__(self, num_experts, expert_units_1, expert_units_2, top_k, **kwargs):
+        super(MoETopKLayer, self).__init__(**kwargs)
+        self.num_experts = num_experts
+        self.expert_units_1 = expert_units_1
+        self.expert_units_2 = expert_units_2
+        self.top_k = top_k
+
+        self.experts = [Expert(units1=expert_units_1, units2=expert_units_2) for _ in range(num_experts)]
+        self.gating_network = Dense(num_experts, activation='softmax')
+
+    def call(self, inputs):
+        # Get probs for each expert
+        gate_outputs = self.gating_network(inputs)
+        # Get indices of top k experts
+        top_k_values, top_k_indices = tf.nn.top_k(gate_outputs, k=self.top_k)
+        # Mask bottom experts; normalize
+        mask = tf.reduce_sum(tf.one_hot(top_k_indices, depth=self.num_experts), axis=1)
+        gated_outputs = gate_outputs * mask
+        gated_outputs /= tf.reduce_sum(gated_outputs, axis=-1, keepdims=True)
+        # Weighted avg of top k
+        expert_outputs = tf.stack([expert(inputs) for expert in self.experts], axis=-1)
+        weighted_expert_outputs = tf.reduce_sum(expert_outputs * tf.expand_dims(gated_outputs, axis=1), axis=-1)
+
+        return weighted_expert_outputs
+    
+
 def get_transformer_model(shape: tuple, label: str):
     """
     Define a transformer and LSTM based architecture.
@@ -155,17 +194,15 @@ def get_transformer_model(shape: tuple, label: str):
     Returns:
         keras.Model: Model with a transformer-LSTM architecture.
     """
-    # Transformer block (with LSTM position encoding)
+    # Transformer block with LSTM position encoding and MoE
     def transformer_block(x, num_heads, key_dim, ff_dim_1, ff_dim_2):
         x = Add()([x, LSTM(units=x.shape[2], return_sequences=True)(x)])
         attn_layer = MultiHeadAttention(
-            num_heads=num_heads, key_dim=key_dim, kernel_initializer=HeNormal(),
-            dropout=0.2)(x, x)
+            num_heads=num_heads, key_dim=key_dim, dropout=0.2)(x, x)
         x = Add()([x, attn_layer])
         x = LayerNormalization(epsilon=1e-8)(x)
-        ff = Dense(ff_dim_2, kernel_initializer=HeNormal(), activation='relu')(
-            Dense(ff_dim_1, kernel_initializer=HeNormal(), activation='relu')(x))
-        x = Add()([x, ff])
+        moe = MoETopKLayer(num_experts=5, expert_units_1=ff_dim_1, expert_units_2=ff_dim_2, top_k=2)(x)
+        x = Add()([x, moe])
         x = LayerNormalization(epsilon=1e-8)(x)
         return x
 
@@ -180,17 +217,17 @@ def get_transformer_model(shape: tuple, label: str):
     input_layer = Input(shape=shape)
     # Encoder
     encoder = transformer_stack(
-        input_layer, num_heads=4, key_dim=8, ff_dim_1=128, ff_dim_2=shape[1], num_blocks=2)
-    encoder = Dense(8, kernel_initializer=HeNormal(), activation='relu')(encoder)
+        input_layer, num_heads=4, key_dim=8, ff_dim_1=shape[1], ff_dim_2=shape[1], num_blocks=2)
+    encoder = Dense(8, activation='gelu')(encoder)
     # Decoder
-    decoder = Dense(shape[1], kernel_initializer=HeNormal(), activation='relu')(encoder)
+    decoder = Dense(shape[1], activation='gelu')(encoder)
     decoder = transformer_stack(
-        decoder, num_heads=4, key_dim=8, ff_dim_1=128, ff_dim_2=shape[1], num_blocks=2)
+        decoder, num_heads=4, key_dim=8, ff_dim_1=shape[1], ff_dim_2=shape[1], num_blocks=2)
     # Pool
     pooling_layer = Flatten()(decoder)
     # Output
-    dense_layer_1 = Dense(units=256, kernel_initializer=HeNormal(), activation='relu')(pooling_layer)
-    dense_layer_2 = Dense(units=64, kernel_initializer=HeNormal(), activation='relu')(dense_layer_1)
+    dense_layer_1 = Dense(units=256, activation='gelu')(pooling_layer)
+    dense_layer_2 = Dense(units=64, activation='gelu')(dense_layer_1)
     output_layer = last_layer(label)(dense_layer_2)
     model = Model(inputs=input_layer, outputs=output_layer)
 
