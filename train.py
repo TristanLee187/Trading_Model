@@ -17,6 +17,9 @@ from sklearn.ensemble import RandomForestClassifier
 import joblib
 import argparse
 
+SEED = 42
+np.random.seed(SEED)
+
 def prepare_training_data(time_interval: str, label: str):
     """
     Prepare training data (inputs and ground truth labels).
@@ -211,7 +214,7 @@ def get_transformer_model(shape: tuple, label: str):
         x = Add()([x, LSTM(units=x.shape[2], return_sequences=True)(x)])
         attn_layer = MultiHeadAttention(
             num_heads=num_heads, key_dim=key_dim, 
-            dropout=0.2, kernal_regularizer=L1L2(1e-3, 1e-3))(x, x)
+            dropout=0.2, kernel_regularizer=L1L2(1e-3, 1e-3))(x, x)
         x = Add()([x, attn_layer])
         x = LayerNormalization(epsilon=1e-8)(x)
         moe = MoETopKLayer(num_experts=5, expert_units_1=ff_dim_1, expert_units_2=ff_dim_2, top_k=2)(x)
@@ -304,6 +307,10 @@ if __name__ == '__main__':
         X, y = prepare_training_data(
             args.time_interval, args.label)
         np.savez(f'./models/{VERSION}/{args.label}_X_and_y.npz', X=X, y=y)
+
+    # Shuffle
+    shuffle = np.random.permutation(len(X))
+    X, y = X[shuffle], y[shuffle]
 
     if args.model in ['LSTM', 'transformer']:
         # Prepare validation data
