@@ -9,7 +9,6 @@ from keras.api.utils import custom_object_scope
 from train import custom_categorical_crossentropy, Expert, MoETopKLayer
 from datetime import date, timedelta
 import matplotlib.pyplot as plt
-import joblib
 import argparse
 
 
@@ -81,16 +80,13 @@ def reg_model_eval(model_path: str, model_arch: str, ticker: str, time_interval:
         ticker, time_interval, start_date, end_date)
 
     # Prepare test data and scalers to plot the real values
-    X, y_gt, scaler_mins, scaler_scales = prepare_model_data(
+    X, x_meta, y_gt, scaler_mins, scaler_scales = prepare_model_data(
         data, label, 'Close')
 
     # Predict
-    if model_arch in ['LSTM', 'transformer']:
+    if model_arch == 'transformer':
         model = load_model(model_path, compile=False)
-    elif model_arch == 'forest':
-        model = joblib.load(model_path)
-        X = X.reshape(X.shape[0], -1)
-    y_predictions = model.predict(X).reshape(len(y_gt))
+    y_predictions = model.predict([X, x_meta]).reshape(len(y_gt))
 
     # Scale the normalized ground truth and predictions back to their original values
     y_gt = y_gt / scaler_scales + scaler_mins
@@ -206,12 +202,10 @@ def all_tickers_class_model_eval(model_path: str, model_arch: str, time_interval
     performance_output = ''
     total_loss = 0
 
-    if model_arch in ['LSTM', 'transformer']:
+    if model_arch == 'transformer':
         with custom_object_scope({'custom_categorical_crossentropy': custom_categorical_crossentropy,
                                   'Expert': Expert, 'MoETopKLayer': MoETopKLayer}):
             model = load_model(model_path)
-    elif model_arch == 'forest':
-        model = joblib.load(model_path)
 
     for ticker in tickers:
         # Fetch Yahoo Finance data
@@ -219,19 +213,16 @@ def all_tickers_class_model_eval(model_path: str, model_arch: str, time_interval
             ticker, time_interval, start_date, end_date)
 
         # Prepare test data
-        X, y_gt, scaler_mins, scaler_scales = prepare_model_data(
+        X, x_meta, y_gt, scaler_mins, scaler_scales = prepare_model_data(
             data, 'signal', 'Close')
-        if model_arch == 'forest':
-            X = X.reshape(X.shape[0], -1)
 
         # Predict
-        y_predictions = model.predict(X)
+        y_predictions = model.predict([X, x_meta])
         loss, *metrics = model.evaluate(X, y_gt)
         total_loss += loss
 
         # Convert one-hot predictions to classes (0 for do nothing, 1 for buy, 2 for sell)
-        if model_arch != 'forest':
-            y_actions = np.argmax(y_predictions, axis=1)
+        y_actions = np.argmax(y_predictions, axis=1)
 
         # Evaluate the decisions against the actual prices (standardize all prices so that each
         # ticker starts with price $1)
@@ -296,23 +287,19 @@ def ticker_class_model_eval(model_path: str, model_arch: str, ticker: str, time_
         ticker, time_interval, start_date, end_date)
 
     # Prepare test data and scalers to plot the real values
-    X, y_gt, scaler_mins, scaler_scales = prepare_model_data(
+    X, x_meta, y_gt, scaler_mins, scaler_scales = prepare_model_data(
         data, 'signal', 'Close')
 
     # Predict
-    if model_arch in ['LSTM', 'transformer']:
+    if model_arch == 'transformer':
         with custom_object_scope({'custom_categorical_crossentropy': custom_categorical_crossentropy,
                                   'Expert': Expert, 'MoETopKLayer': MoETopKLayer}):
             model = load_model(model_path, compile=False)
-    elif model_arch == 'forest':
-        model = joblib.load(model_path)
-        X = X.reshape(X.shape[0], -1)
-    y_predictions = model.predict(X)
+    y_predictions = model.predict([X, x_meta])
 
     # Convert one-hot predictions to classes (0 for do nothing, 1 for buy, 2 for sell)
     y_gt = np.argmax(y_gt, axis=1)
-    if model_arch != 'forest':
-        y_actions = np.argmax(y_predictions, axis=1)
+    y_actions = np.argmax(y_predictions, axis=1)
 
     # Plot the ground truth vs. predictions.
     gt_buy_mask = y_gt == 2
@@ -371,7 +358,7 @@ if __name__ == '__main__':
     parser.add_argument('-k', '--ticker', type=str,
                         help='ticker to evaluate the model on, or "all" for evaluating buy/sell signals', required=True)
     parser.add_argument('-m', '--model', type=str, help='model architecture to use',
-                        choices=['LSTM', 'transformer', 'forest'], required=True)
+                        choices=['transformer'], required=True)
     parser.add_argument('-t', '--time_interval', type=str, help='time interval data to train on',
                         choices=['1m', '1d'], required=True)
     parser.add_argument('-l', '--label', type=str, help='labels to use for each instance',
@@ -381,7 +368,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # Get the model location for NNs
-    if args.model in ['LSTM', 'transformer']:
+    if args.model == 'transformer':
         if args.label == 'price':
             loss_func_str = args.error
         elif args.label == 'signal':
@@ -392,13 +379,6 @@ if __name__ == '__main__':
         )
 
         model_path = f'{tag}_model.keras'
-    # Get the model location for Random Forest
-    elif args.model == 'forest':
-        tag = './models/{}/{}_{}_close-{}'.format(
-            VERSION, args.model, args.time_interval, args.label
-        )
-
-        model_path = f'{tag}_model.pkl'
 
     if args.time_interval == '1d':
         start, end = date(2024, 1, 1), date(2024, 10, 31)

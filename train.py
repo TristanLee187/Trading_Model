@@ -6,15 +6,13 @@ from common import *
 from sklearn.model_selection import train_test_split
 import tensorflow as tf
 from keras import Model
-from keras.api.models import Sequential, load_model
+from keras.api.models import load_model
 from keras.api.layers import LSTM, Dense, Input, MultiHeadAttention, TimeDistributed, Add, LayerNormalization, Flatten, Layer
 from keras.api.regularizers import L1L2
 from keras.api.optimizers import RMSprop
 from keras.api.utils import custom_object_scope
 from keras.api.callbacks import ReduceLROnPlateau
 from keras.api.metrics import F1Score
-from sklearn.ensemble import RandomForestClassifier
-import joblib
 import argparse
 
 SEED = 42
@@ -37,8 +35,8 @@ def prepare_training_data(time_interval: str, label: str):
         numpy.array, numpy.array: Two numpy arrays X and y containing the training instances and ground
             truth labels, respectively.
     """
-    # Init training instances and labels
-    X, y = [], []
+    # Init training instances, metadata, and labels
+    X, x_meta, y = [], [], []
 
     # Distinguish which directory to read from based on the time interval
     dir_prefix = 'minute' if time_interval == '1m' else 'daily'
@@ -58,23 +56,26 @@ def prepare_training_data(time_interval: str, label: str):
             days = daily_data.groups.keys()
             for day in days:
                 day_data = daily_data.get_group(day)
-                ticker_X, ticker_y, mins, scales = prepare_model_data(
+                ticker_X, ticker_x_meta, ticker_y, mins, scales = prepare_model_data(
                     day_data, label, 'Close')
 
                 X.append(ticker_X)
+                x_meta.append(ticker_x_meta)
                 y.append(ticker_y)
 
         elif time_interval == '1d':
             # Just use the ticker's whole file data as a contiguous training set
-            ticker_X, ticker_y, mins, scales = prepare_model_data(
+            ticker_X, ticker_x_meta, ticker_y, mins, scales = prepare_model_data(
                 data, label, 'Close')
 
             X.append(ticker_X)
+            x_meta.append(ticker_x_meta)
             y.append(ticker_y)
 
         print(f'{ticker} is done')
 
     X = np.concatenate(X)
+    x_meta = np.concatenate(x_meta)
     y = np.concatenate(y)
 
     return X, y
@@ -126,27 +127,28 @@ def last_layer(label: str):
         return Dense(units=3, activation='softmax')
 
 
-def get_lstm_model(shape: tuple, label: str):
-    """
-    Define an LSTM model.
+# Adaptive layer norm
+class AdaptiveLayerNorm(Layer):
+    def __init__(self, feature_dim, epsilon=1e-8):
+        super(AdaptiveLayerNorm, self).__init__()
+        self.epsilon = epsilon
+        self.feature_dim = feature_dim
 
-    Args:
-        shape (tuple[int, int]): shape of each input instance.
-        label (str):  The label type to train on.
+    def build(self, input_shape):
+        self.gamma = self.add_weight(shape=(1, input_shape[-1]), initializer='ones', trainable=True)
+        self.beta = self.add_weight(shape=(1, input_shape[-1]), initializer='zeros', trainable=True)
 
-    Returns:
-        keras.models.Sequential: Sequential model with an LSTM architecture.
-    """
-    # Define the LSTM model
-    window_length, num_features = shape
-    model = Sequential([
-        Input(shape=(window_length, num_features)),
-        LSTM(units=num_features**2, return_sequences=True),
-        LSTM(units=100),
-        last_layer(label)
-    ])
-    return model
-    
+    def call(self, inputs, feature_vector):
+        # Apply layer normalization
+        mean, variance = tf.nn.moments(inputs, axes=-1, keepdims=True)
+        normed = (inputs - mean) / tf.sqrt(variance + self.epsilon)
+
+        # Condition scaling and shifting on the feature vector
+        scale = tf.matmul(feature_vector, self.gamma)
+        shift = tf.matmul(feature_vector, self.beta)
+
+        return normed * scale + shift
+
 
 # Single expert
 class Expert(Layer):
@@ -198,79 +200,60 @@ class MoETopKLayer(Layer):
         return weighted_expert_outputs
     
 
-def get_transformer_model(shape: tuple, label: str):
+def get_transformer_model(shape: tuple, meta_dim: int, label: str):
     """
     Define a transformer and LSTM based architecture.
 
     Args:
-        shape (tuple[int, int]): shape of each input instance.
+        shape (tuple[int, int]): shape of each input sequence.
+        meta_dim (int): Dimension of the metadata vector.
         label (str):  The label type to train on.
 
     Returns:
         keras.Model: Model with a transformer-LSTM architecture.
     """
     # Transformer block with LSTM position encoding and MoE
-    def transformer_block(x, num_heads, key_dim, ff_dim_1, ff_dim_2):
+    def transformer_block(x, x_meta_vec, num_heads, key_dim, ff_dim_1, ff_dim_2):
         x = Add()([x, LSTM(units=x.shape[2], return_sequences=True)(x)])
         attn_layer = MultiHeadAttention(
             num_heads=num_heads, key_dim=key_dim, 
             dropout=0.2, kernel_regularizer=L1L2(1e-3, 1e-3))(x, x)
         x = Add()([x, attn_layer])
-        x = LayerNormalization(epsilon=1e-8)(x)
+        x = AdaptiveLayerNorm(feature_dim=x_meta_vec.shape[-1])(x, x_meta_vec)
         moe = MoETopKLayer(num_experts=5, expert_units_1=ff_dim_1, expert_units_2=ff_dim_2, top_k=2)(x)
         x = Add()([x, moe])
         x = LayerNormalization(epsilon=1e-8)(x)
         return x
 
     # Stack of Transformer blocks
-    def transformer_stack(x, num_heads, key_dim, ff_dim_1, ff_dim_2, num_blocks):
+    def transformer_stack(x, x_meta_vec, num_heads, key_dim, ff_dim_1, ff_dim_2, num_blocks):
         for _ in range(num_blocks):
-            x = transformer_block(x, num_heads=num_heads, key_dim=key_dim, 
+            x = transformer_block(x, x_meta_vec, num_heads=num_heads, key_dim=key_dim, 
                                   ff_dim_1=ff_dim_1, ff_dim_2=ff_dim_2)
         return x
 
     # Define the Transformer model
-    input_layer = Input(shape=shape)
+    seq_input_layer = Input(shape=shape)
+    meta_input_layer = Input(shape=meta_dim)
+
     # Encoder
-    encoder = transformer_stack(
-        input_layer, num_heads=4, key_dim=8, ff_dim_1=shape[1], ff_dim_2=shape[1], num_blocks=2)
+    encoder = transformer_stack(seq_input_layer, meta_input_layer, 
+                                num_heads=4, key_dim=8, ff_dim_1=shape[1], ff_dim_2=shape[1], num_blocks=2)
     encoder = Dense(8, activation='gelu')(encoder)
+
     # Decoder
     decoder = Dense(shape[1], activation='gelu')(encoder)
-    decoder = transformer_stack(
-        decoder, num_heads=4, key_dim=8, ff_dim_1=shape[1], ff_dim_2=shape[1], num_blocks=2)
+    decoder = transformer_stack(decoder, meta_input_layer,
+                                num_heads=4, key_dim=8, ff_dim_1=shape[1], ff_dim_2=shape[1], num_blocks=2)
+    
     # Pool
     pooling_layer = Flatten()(decoder)
+
     # Output
     dense_layer_1 = Dense(units=256, activation='gelu')(pooling_layer)
     dense_layer_2 = Dense(units=64, activation='gelu')(dense_layer_1)
     output_layer = last_layer(label)(dense_layer_2)
-    model = Model(inputs=input_layer, outputs=output_layer)
-
-    return model
-
-
-def get_random_forest_model():
-    """
-    Define a Random Forest with its hyperparameters.
-
-    Args:
-        None
-
-    Returns:
-        sklearn.ensemble.RandomForestClassifier: Random Forest model with
-            set hyperparameters.
-    """
-    model = RandomForestClassifier(
-        n_estimators=100,
-        max_samples=0.1,
-        max_features=None,
-        class_weight='balanced',
-        criterion="entropy",
-        min_samples_leaf=10,
-        oob_score=True,
-        random_state=42,
-    )
+    model = Model(inputs=[seq_input_layer, meta_input_layer], outputs=output_layer)
 
     return model
 
@@ -281,7 +264,7 @@ if __name__ == '__main__':
         description="Train a Model"
     )
     parser.add_argument('-m', '--model', type=str, help='model type/architecture to use',
-                        choices=['LSTM', 'transformer', 'forest'], required=True)
+                        choices=['transformer'], required=True)
     parser.add_argument('-t', '--time_interval', type=str, help='time interval data to train on',
                         choices=['1m', '1d'], required=True)
     parser.add_argument('-d', '--train_data', type=str, help='if set, path to file containing X and y sequence data')
@@ -302,72 +285,44 @@ if __name__ == '__main__':
     # Prepare training data
     if args.train_data:
         npzfile = np.load(args.train_data)
-        X, y = npzfile['X'], npzfile['y']
+        X, x_meta, y = npzfile['X'], npzfile['y']
     else:
-        X, y = prepare_training_data(
-            args.time_interval, args.label)
-        np.savez(f'./models/{VERSION}/{args.label}_X_and_y.npz', X=X, y=y)
+        X, x_meta, y = prepare_training_data(args.time_interval, args.label)
+        np.savez(f'./models/{VERSION}/{args.label}_X_xmeta_and_y.npz', X=X, y=y)
 
-    # Shuffle
-    shuffle = np.random.permutation(len(X))
-    X, y = X[shuffle], y[shuffle]
+    # Prepare validation data
+    X_train, X_val, x_meta_train, x_meta_val, y_train, y_val = train_test_split(
+            X, x_meta, y, test_size=0.2, random_state=42)
+    
+    # Get appropriate NN model
+    if args.resume is not None:
+        with custom_object_scope({'Expert': Expert, 'MoETopKLayer': MoETopKLayer}):
+            model = load_model(args.resume, compile=False)
+    else:
+        model = get_transformer_model(X[0].shape, x_meta[0].shape, args.label)
 
-    if args.model in ['LSTM', 'transformer']:
-        # Prepare validation data
-        X_train, X_val, y_train, y_val = train_test_split(
-                X, y, test_size=0.2, random_state=42)
-        # Get appropriate NN architecture
-        if args.resume is not None:
-            with custom_object_scope({'Expert': Expert, 'MoETopKLayer': MoETopKLayer}):
-                model = load_model(args.resume, compile=False)
-        elif args.model == 'LSTM':
-            model = get_lstm_model(X[0].shape, args.label)
-        else:
-            model = get_transformer_model(X[0].shape, args.label)
+    # Compile
+    if args.label == 'price':
+        model.compile(optimizer='adam', loss=args.error)
+    elif args.label == 'signal':
+        model.compile(
+            optimizer=RMSprop(learning_rate=(args.learning_rate if args.learning_rate is not None else 0.001)),
+            loss=custom_categorical_crossentropy, metrics=[F1Score()])
 
-        # Compile
-        if args.label == 'price':
-            model.compile(optimizer='adam', loss=args.error)
-        elif args.label == 'signal':
-            model.compile(
-                optimizer=RMSprop(learning_rate=(args.learning_rate if args.learning_rate is not None else 0.001)),
-                loss=custom_categorical_crossentropy, 
-                metrics=[F1Score()])
+    # Train!
+    lr_scheduler = ReduceLROnPlateau(monitor='loss', factor=0.5, patience=5, min_lr = 1e-7)
+    model.fit([X_train, x_meta_train], y_train, epochs=args.epochs, batch_size=(args.batch_size if args.batch_size is not None else 32),
+                validation_data=([X_val, x_meta_val], y_val), 
+                callbacks=[lr_scheduler])
+    
+    # Save the model
+    if args.label == 'price':
+        loss_func_str = args.error
+    elif args.label == 'signal':
+        loss_func_str = 'cce'
 
-        # Train!
-        lr_scheduler = ReduceLROnPlateau(monitor='loss', factor=0.5, patience=5, min_lr = 1e-7)
-        model.fit(X_train, y_train, epochs=args.epochs, batch_size=(args.batch_size if args.batch_size is not None else 32),
-                  validation_data=(X_val, y_val), 
-                  callbacks=[lr_scheduler])
-        
-        # Save the model
-        if args.label == 'price':
-            loss_func_str = args.error
-        elif args.label == 'signal':
-            loss_func_str = 'cce'
+    tag = './models/{}/{}_{}_close-{}_{}'.format(
+        VERSION, args.model, args.time_interval, args.label, loss_func_str
+    )
 
-        tag = './models/{}/{}_{}_close-{}_{}'.format(
-            VERSION, args.model, args.time_interval, args.label, loss_func_str
-        )
-
-        model.save(f'{tag}_model.keras')
-
-    elif args.model == "forest":
-        model = get_random_forest_model()
-
-        # Flatten data to feed into random forest
-        X = X.reshape(X.shape[0], -1)
-
-        # Change to class numbers if classifying
-        if args.label == 'signal':
-            y = np.argmax(y, axis=1)
-
-        # Train!
-        model = model.fit(X, y)
-        
-        # Save the model
-        tag = './models/{}/{}_{}_close-{}'.format(
-            VERSION, args.model, args.time_interval, args.label
-        )
-
-        joblib.dump(model, f'{tag}_model.pkl')
+    model.save(f'{tag}_model.keras')

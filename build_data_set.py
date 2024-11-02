@@ -7,6 +7,21 @@ from common import tickers
 import argparse
 import pandas as pd
 
+# Sector names to unique ids
+sec_to_id = {
+    'Basic Materials': 1,
+    'Industrials': 2,
+    'Consumer Defensive': 3,
+    'Consumer Cyclical': 4,
+    'Technology': 5,
+    'Communication Services': 6,
+    'Financial Services': 7,
+    'Energy': 8,
+    'Utilities': 9,
+    'Healthcare': 10,
+    'Real Estate': 11
+}
+
 def build_daily_dataset(ticker: str, start_date: date, end_date: date):
     """
     Build a DataFrame containing daily market data of a ticker between 2 dates.
@@ -64,6 +79,9 @@ def build_daily_dataset(ticker: str, start_date: date, end_date: date):
 
     # Calculate the RSI.
     data['RSI'] = ind.rsi(data['Close'], 14)
+
+    # Add the sector ID.
+    data['Sector_ID'] = sec_to_id[yf.Ticker(ticker).info['sector']]
 
     # Join with fundamentals data
     fund_data = pd.read_csv("daily_market_data/quarterly_earnings.csv")

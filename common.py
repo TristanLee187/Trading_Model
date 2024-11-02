@@ -18,6 +18,21 @@ sp_100_tickers = ['AAPL', 'ABBV', 'ABT', 'ACN', 'ADBE', 'AIG', 'AMD', 'AMGN', 'A
                   'UNP', 'UPS', 'USB', 'V', 'VZ', 'WFC', 'WMT', 'XOM']
 tickers = sp_100_tickers
 
+# Sector to vector mapping
+sec_to_vec = {
+    1: [0.2, 0.8, 0, 0, 0, 0, 0],
+    2: [0.35, 0.5, 0, 0.15, 0, 0, 0],
+    3: [0.8, 0, 0, 0, 0, 0.1, 0.1],
+    4: [0.5, 0.1, 0.4, 0, 0, 0, 0],
+    5: [0.2, 0, 0.7, 0, 0, 0, 0.1],
+    6: [0.4, 0, 0.5, 0.1, 0, 0, 0],
+    7: [0.05, 0, 0.15, 0.8, 0, 0, 0],
+    8: [0.1, 0, 0, 0, 0, 0, 0.9],
+    9: [0.1, 0.1, 0, 0, 0, 0, 0.8],
+    10: [0.1, 0, 0.1, 0, 0.8, 0, 0],
+    11: [0.2, 0, 0, 0, 0, 0.8, 0]
+}
+
 # Version folder to save models and plots to.
 VERSION = 'v8'
 
@@ -89,7 +104,7 @@ ignore_cols = ['Open', 'High', 'Low', 'Adj Close', 'Year', 'Month', 'Day', 'Tick
 
 # Columns to not normalize (using the closing price) for the training data.
 keep_cols = ['Proportional_Change', 'Stochastic_Oscillator', 'RSI', 'Volume',
-             'estimate_EPS', 'report_EPS', 'surprise_percent', 'PE']
+             'estimate_EPS', 'report_EPS', 'surprise_percent', 'PE', 'Sector_ID']
 
 
 def prepare_model_data(data: pd.DataFrame, label: str, col: str):
@@ -122,8 +137,8 @@ def prepare_model_data(data: pd.DataFrame, label: str, col: str):
         def labeller(i, mi, scale):
             return buy_sell_label(local_data, i, col, mi, scale)
 
-    # Init return instances, labels, and scaler values
-    X, y, scaler_mins, scaler_scales = [], [], [], []
+    # Init sequences, metadata, labels, and scaler values
+    X, x_meta, y, scaler_mins, scaler_scales = [], [], [], [], []
 
     # Define right boundary for regression based signals
     if label == 'price':
@@ -150,18 +165,23 @@ def prepare_model_data(data: pd.DataFrame, label: str, col: str):
         # Normalize by just scaling (divergence)
         sequence_2 = sequence[no_translate_cols] * scale
 
-        # Custom normalization
+        # Custom normalization and handling
         sequence_3 = sequence[keep_cols]
         # Scale volume by max
         sequence_3['Volume'] /= sequence_3['Volume'].max()
         # Sigmoid PE
         sequence_3['PE'] = 1/(1 + np.exp(sequence_3['PE']/100))
+        # Get the sector vector
+        sector_id = sequence_3['Sector_ID'].iloc[0]
+        sector_vector = sec_to_vec[sector_id]
 
         sequence = pd.concat(
             [sequence_1, sequence_2, sequence_3],
             axis=1).to_numpy()
 
         X.append(sequence)
+
+        x_meta.append(sector_vector)
 
         gt_label = labeller(i, mi, scale)
         y.append(gt_label)
@@ -170,8 +190,9 @@ def prepare_model_data(data: pd.DataFrame, label: str, col: str):
         scaler_scales.append(scale)
 
     X = np.array(X)
+    x_meta = np.array(x_meta)
     y = np.array(y)
     scaler_mins = np.array(scaler_mins)
     scaler_scales = np.array(scaler_scales)
 
-    return X, y, scaler_mins, scaler_scales
+    return X, x_meta, y, scaler_mins, scaler_scales
