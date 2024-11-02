@@ -7,8 +7,10 @@ from sklearn.model_selection import train_test_split
 import tensorflow as tf
 from keras import Model
 from keras.api.models import Sequential, load_model
-from keras.api.layers import LSTM, Dense, Input, MultiHeadAttention, Add, LayerNormalization, Flatten, Layer
+from keras.api.layers import LSTM, Dense, Input, MultiHeadAttention, TimeDistributed, Add, LayerNormalization, Flatten, Layer
+from keras.api.regularizers import L1L2
 from keras.api.optimizers import RMSprop
+from keras.api.utils import custom_object_scope
 from keras.api.callbacks import ReduceLROnPlateau
 from keras.api.metrics import F1Score
 from sklearn.ensemble import RandomForestClassifier
@@ -90,9 +92,9 @@ def custom_categorical_crossentropy(y_true, y_pred):
     """
     # weights[i][j]: penalty for if the ground truth was i but the predicted was j.
     weights = tf.constant([
-        [0.0, 3.0, 10.0],
-        [2.0, 0.0, 2.0],
-        [10.0, 3.0, 0.0],
+        [0.0, 2.0, 10.0],
+        [3.0, 0.0, 3.0],
+        [10.0, 2.0, 0.0],
     ])
 
     y_pred = tf.clip_by_value(y_pred, 1e-7, 1.0)
@@ -147,8 +149,14 @@ def get_lstm_model(shape: tuple, label: str):
 class Expert(Layer):
     def __init__(self, units1, units2):
         super(Expert, self).__init__()
-        self.dense1 = Dense(units1, activation='gelu')
-        self.dense2 = Dense(units2, activation='gelu')
+        self.units1 = units1
+        self.units2 = units2
+        self.dense1 = None
+        self.dense2 = None
+
+    def build(self, input_shape):
+        self.dense1 = Dense(self.units1, activation='gelu')
+        self.dense2 = Dense(self.units2, activation='gelu')
     
     def call(self, inputs):
         x = self.dense1(inputs)
@@ -164,8 +172,12 @@ class MoETopKLayer(Layer):
         self.expert_units_2 = expert_units_2
         self.top_k = top_k
 
-        self.experts = [Expert(units1=expert_units_1, units2=expert_units_2) for _ in range(num_experts)]
-        self.gating_network = Dense(num_experts, activation='softmax')
+        self.experts = None
+        self.gating_network = None
+
+    def build(self, input_shape):
+        self.experts = [TimeDistributed(Expert(self.expert_units_1, self.expert_units_2)) for _ in range(self.num_experts)]
+        self.gating_network = TimeDistributed(Dense(self.num_experts, activation='softmax'))
 
     def call(self, inputs):
         # Get probs for each expert
@@ -173,12 +185,12 @@ class MoETopKLayer(Layer):
         # Get indices of top k experts
         top_k_values, top_k_indices = tf.nn.top_k(gate_outputs, k=self.top_k)
         # Mask bottom experts; normalize
-        mask = tf.reduce_sum(tf.one_hot(top_k_indices, depth=self.num_experts), axis=1)
+        mask = tf.reduce_sum(tf.one_hot(top_k_indices, depth=self.num_experts), axis=-2)
         gated_outputs = gate_outputs * mask
-        gated_outputs /= tf.reduce_sum(gated_outputs, axis=-1, keepdims=True)
+        gated_outputs /= tf.reduce_sum(gated_outputs, axis=-1, keepdims=True) + tf.constant(1e-9)
         # Weighted avg of top k
         expert_outputs = tf.stack([expert(inputs) for expert in self.experts], axis=-1)
-        weighted_expert_outputs = tf.reduce_sum(expert_outputs * tf.expand_dims(gated_outputs, axis=1), axis=-1)
+        weighted_expert_outputs = tf.reduce_sum(expert_outputs * tf.expand_dims(gated_outputs, axis=2), axis=-1)
 
         return weighted_expert_outputs
     
@@ -198,7 +210,8 @@ def get_transformer_model(shape: tuple, label: str):
     def transformer_block(x, num_heads, key_dim, ff_dim_1, ff_dim_2):
         x = Add()([x, LSTM(units=x.shape[2], return_sequences=True)(x)])
         attn_layer = MultiHeadAttention(
-            num_heads=num_heads, key_dim=key_dim, dropout=0.2)(x, x)
+            num_heads=num_heads, key_dim=key_dim, 
+            dropout=0.2, kernal_regularizer=L1L2(1e-4, 1e-4))(x, x)
         x = Add()([x, attn_layer])
         x = LayerNormalization(epsilon=1e-8)(x)
         moe = MoETopKLayer(num_experts=5, expert_units_1=ff_dim_1, expert_units_2=ff_dim_2, top_k=2)(x)
@@ -298,7 +311,8 @@ if __name__ == '__main__':
                 X, y, test_size=0.2, random_state=42)
         # Get appropriate NN architecture
         if args.resume is not None:
-            model = load_model(args.resume, compile=False)
+            with custom_object_scope({'Expert': Expert, 'MoETopKLayer': MoETopKLayer}):
+                model = load_model(args.resume, compile=False)
         elif args.model == 'LSTM':
             model = get_lstm_model(X[0].shape, args.label)
         else:
