@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 from common import *
 from build_data_set import build_daily_dataset, build_minute_dataset
+import keras
 from keras.api.models import load_model
 from keras.api.utils import custom_object_scope
 from train import custom_categorical_crossentropy, Expert, MoETopKLayer, AdaptiveLayerNorm
@@ -12,11 +13,13 @@ import matplotlib.pyplot as plt
 import argparse
 
 CUSTOM_OBJECTS = {
-        'custom_categorical_crossentropy': custom_categorical_crossentrop, 
+        'custom_categorical_crossentropy': custom_categorical_crossentropy, 
         'Expert': Expert, 
         'MoETopKLayer': MoETopKLayer,
         'AdaptiveLayerNorm': AdaptiveLayerNorm
     }
+
+keras.config.enable_unsafe_deserialization()
 
 def build_eval_data(ticker: str, time_interval: str, start_date: date, end_date: date = None):
     """
@@ -224,7 +227,7 @@ def all_tickers_class_model_eval(model_path: str, model_arch: str, time_interval
 
         # Predict
         y_predictions = model.predict([X, x_meta])
-        loss, *metrics = model.evaluate(X, y_gt)
+        loss, *metrics = model.evaluate([X, x_meta], y_gt)
         total_loss += loss
 
         # Convert one-hot predictions to classes (0 for do nothing, 1 for buy, 2 for sell)

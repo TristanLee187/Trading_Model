@@ -7,7 +7,7 @@ from sklearn.model_selection import train_test_split
 import tensorflow as tf
 from keras import Model
 from keras.api.models import load_model
-from keras.api.layers import LSTM, Dense, Input, MultiHeadAttention, TimeDistributed, Add, LayerNormalization, Flatten, Layer
+from keras.api.layers import LSTM, Dense, Input, MultiHeadAttention, TimeDistributed, Add, LayerNormalization, Flatten, Layer, Lambda
 from keras.api.regularizers import L2
 from keras.api.optimizers import RMSprop
 from keras.api.utils import custom_object_scope
@@ -128,7 +128,7 @@ def last_layer(label: str):
 
 # Adaptive layer norm
 class AdaptiveLayerNorm(Layer):
-    def __init__(self, feature_dim, hidden_dim, epsilon):
+    def __init__(self, feature_dim, hidden_dim, epsilon, **kwargs):
         super(AdaptiveLayerNorm, self).__init__()
         self.epsilon = epsilon
         self.feature_dim = feature_dim
@@ -247,10 +247,12 @@ def get_transformer_model(shape: tuple, meta_dim: int, label: str):
                                 num_heads=4, key_dim=8, ff_dim_1=shape[1], ff_dim_2=shape[1], num_blocks=2)
     
     # Pool
-    pooling_layer = Flatten()(decoder)
+    # pooling_layer = Flatten()(decoder)
+    # Take the last point of the sequence
+    pooling_layer = Lambda(lambda x: x[:, -1, :])(decoder)
 
     # Output
-    dense_layer_1 = Dense(units=256, activation='gelu')(pooling_layer)
+    dense_layer_1 = Dense(units=128, activation='gelu')(pooling_layer)
     dense_layer_2 = Dense(units=64, activation='gelu')(dense_layer_1)
     output_layer = last_layer(label)(dense_layer_2)
     model = Model(inputs=[seq_input_layer, meta_input_layer], outputs=output_layer)
@@ -308,7 +310,9 @@ if __name__ == '__main__':
         model.compile(
             optimizer=RMSprop(learning_rate=(args.learning_rate if args.learning_rate is not None else 0.001)),
             loss=custom_categorical_crossentropy, metrics=[F1Score()])
-
+    
+    model.summary()
+    
     # Train!
     lr_scheduler = ReduceLROnPlateau(monitor='loss', factor=0.5, patience=5, min_lr = 1e-7)
     model.fit([X_train, x_meta_train], y_train, epochs=args.epochs, batch_size=(args.batch_size if args.batch_size is not None else 32),
