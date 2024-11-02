@@ -7,7 +7,7 @@ from sklearn.model_selection import train_test_split
 import tensorflow as tf
 from keras import Model
 from keras.api.models import Sequential, load_model
-from keras.api.layers import LSTM, Dense, Input, MultiHeadAttention, TimeDistributed, Add, LayerNormalization, Flatten, Layer
+from keras.api.layers import LSTM, Dense, Input, MultiHeadAttention, TimeDistributed, Add, LayerNormalization, Flatten
 from keras.api.regularizers import L1L2
 from keras.api.optimizers import RMSprop
 from keras.api.utils import custom_object_scope
@@ -143,56 +143,6 @@ def get_lstm_model(shape: tuple, label: str):
         last_layer(label)
     ])
     return model
-
-
-# Single expert
-class Expert(Layer):
-    def __init__(self, units1, units2):
-        super(Expert, self).__init__()
-        self.units1 = units1
-        self.units2 = units2
-        self.dense1 = None
-        self.dense2 = None
-
-    def build(self, input_shape):
-        self.dense1 = Dense(self.units1, activation='gelu')
-        self.dense2 = Dense(self.units2, activation='gelu')
-    
-    def call(self, inputs):
-        x = self.dense1(inputs)
-        return self.dense2(x)
-    
-
-# Mixture of experts top k layer
-class MoETopKLayer(Layer):
-    def __init__(self, num_experts, expert_units_1, expert_units_2, top_k, **kwargs):
-        super(MoETopKLayer, self).__init__(**kwargs)
-        self.num_experts = num_experts
-        self.expert_units_1 = expert_units_1
-        self.expert_units_2 = expert_units_2
-        self.top_k = top_k
-
-        self.experts = None
-        self.gating_network = None
-
-    def build(self, input_shape):
-        self.experts = [TimeDistributed(Expert(self.expert_units_1, self.expert_units_2)) for _ in range(self.num_experts)]
-        self.gating_network = TimeDistributed(Dense(self.num_experts, activation='softmax'))
-
-    def call(self, inputs):
-        # Get probs for each expert
-        gate_outputs = self.gating_network(inputs)
-        # Get indices of top k experts
-        top_k_values, top_k_indices = tf.nn.top_k(gate_outputs, k=self.top_k)
-        # Mask bottom experts; normalize
-        mask = tf.reduce_sum(tf.one_hot(top_k_indices, depth=self.num_experts), axis=-2)
-        gated_outputs = gate_outputs * mask
-        gated_outputs /= tf.reduce_sum(gated_outputs, axis=-1, keepdims=True) + tf.constant(1e-9)
-        # Weighted avg of top k
-        expert_outputs = tf.stack([expert(inputs) for expert in self.experts], axis=-1)
-        weighted_expert_outputs = tf.reduce_sum(expert_outputs * tf.expand_dims(gated_outputs, axis=2), axis=-1)
-
-        return weighted_expert_outputs
     
 
 def get_transformer_model(shape: tuple, label: str):
@@ -206,6 +156,31 @@ def get_transformer_model(shape: tuple, label: str):
     Returns:
         keras.Model: Model with a transformer-LSTM architecture.
     """
+    # Top k mixture of experts layer
+    def moe_top_k_layer(x, num_experts, expert_units_1, expert_units_2, top_k):
+        experts = []
+        for _ in range(num_experts):
+            expert_input = Input(shape=x.shape[1:])
+            expert_output = TimeDistributed(Dense(expert_units_1, activation='gelu'))(expert_input)
+            expert_output = TimeDistributed(Dense(expert_units_2, activation='gelu'))(expert_output)
+            expert_model = Model(inputs=expert_input, outputs=expert_output)
+            experts.append(expert_model(x))
+        
+        expert_outputs = tf.stack(experts, axis=-1)        
+        gating_network = TimeDistributed(Dense(num_experts, activation='softmax'))(x)
+        
+        top_k_values, top_k_indices = tf.nn.top_k(gating_network, k=top_k)
+        
+        # Masking for top-k experts and normalization
+        mask = tf.reduce_sum(tf.one_hot(top_k_indices, depth=num_experts), axis=-2)
+        gated_outputs = gating_network * mask
+        gated_outputs /= tf.reduce_sum(gated_outputs, axis=-1, keepdims=True) + tf.constant(1e-9)
+        
+        # Weighted average
+        weighted_expert_outputs = tf.reduce_sum(expert_outputs * tf.expand_dims(gated_outputs, axis=2), axis=-1)
+        
+        return weighted_expert_outputs
+    
     # Transformer block with LSTM position encoding and MoE
     def transformer_block(x, num_heads, key_dim, ff_dim_1, ff_dim_2):
         x = Add()([x, LSTM(units=x.shape[2], return_sequences=True)(x)])
@@ -214,7 +189,7 @@ def get_transformer_model(shape: tuple, label: str):
             dropout=0.2, kernal_regularizer=L1L2(1e-4, 1e-4))(x, x)
         x = Add()([x, attn_layer])
         x = LayerNormalization(epsilon=1e-8)(x)
-        moe = MoETopKLayer(num_experts=5, expert_units_1=ff_dim_1, expert_units_2=ff_dim_2, top_k=2)(x)
+        moe = moe_top_k_layer(x, num_experts=5, expert_units_1=ff_dim_1, expert_units_2=ff_dim_2, top_k=2)(x)
         x = Add()([x, moe])
         x = LayerNormalization(epsilon=1e-8)(x)
         return x
@@ -311,8 +286,7 @@ if __name__ == '__main__':
                 X, y, test_size=0.2, random_state=42)
         # Get appropriate NN architecture
         if args.resume is not None:
-            with custom_object_scope({'Expert': Expert, 'MoETopKLayer': MoETopKLayer}):
-                model = load_model(args.resume, compile=False)
+            model = load_model(args.resume, compile=False)
         elif args.model == 'LSTM':
             model = get_lstm_model(X[0].shape, args.label)
         else:
