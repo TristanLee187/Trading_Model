@@ -161,8 +161,8 @@ def get_transformer_model(shape: tuple, label: str):
         experts = []
         for _ in range(num_experts):
             expert_input = Input(shape=x.shape[1:])
-            expert_output = TimeDistributed(Dense(expert_units_1, activation='gelu'))(expert_input)
-            expert_output = TimeDistributed(Dense(expert_units_2, activation='gelu'))(expert_output)
+            expert_output = Dense(expert_units_1, activation='gelu')(expert_input)
+            expert_output = Dense(expert_units_2, activation='gelu')(expert_output)
             expert_model = Model(inputs=expert_input, outputs=expert_output)
             experts.append(expert_model(x))
         
