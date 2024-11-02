@@ -300,7 +300,8 @@ def ticker_class_model_eval(model_path: str, model_arch: str, ticker: str, time_
 
     # Predict
     if model_arch in ['LSTM', 'transformer']:
-        model = load_model(model_path, compile=False)
+        with custom_object_scope({'custom_categorical_crossentropy': custom_categorical_crossentropy, 'Expert': Expert, 'MoETopKLayer': MoETopKLayer}):
+            model = load_model(model_path, compile=False)
     elif model_arch == 'forest':
         model = joblib.load(model_path)
         X = X.reshape(X.shape[0], -1)
@@ -398,7 +399,7 @@ if __name__ == '__main__':
         model_path = f'{tag}_model.pkl'
 
     if args.time_interval == '1d':
-        start, end = date(2024, 1, 1), date(2024, 9, 30)
+        start, end = date(2024, 1, 1), date(2024, 10, 31)
     elif args.time_interval == '1m':
         start, end = date(2024, 8, 5), None
 
