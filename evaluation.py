@@ -6,11 +6,17 @@ from common import *
 from build_data_set import build_daily_dataset, build_minute_dataset
 from keras.api.models import load_model
 from keras.api.utils import custom_object_scope
-from train import custom_categorical_crossentropy, Expert, MoETopKLayer
+from train import custom_categorical_crossentropy, Expert, MoETopKLayer, AdaptiveLayerNorm
 from datetime import date, timedelta
 import matplotlib.pyplot as plt
 import argparse
 
+CUSTOM_OBJECTS = {
+        'custom_categorical_crossentropy': custom_categorical_crossentrop, 
+        'Expert': Expert, 
+        'MoETopKLayer': MoETopKLayer,
+        'AdaptiveLayerNorm': AdaptiveLayerNorm
+    }
 
 def build_eval_data(ticker: str, time_interval: str, start_date: date, end_date: date = None):
     """
@@ -85,7 +91,8 @@ def reg_model_eval(model_path: str, model_arch: str, ticker: str, time_interval:
 
     # Predict
     if model_arch == 'transformer':
-        model = load_model(model_path, compile=False)
+        with custom_object_scope(CUSTOM_OBJECTS):
+            model = load_model(model_path, compile=False)
     y_predictions = model.predict([X, x_meta]).reshape(len(y_gt))
 
     # Scale the normalized ground truth and predictions back to their original values
@@ -203,8 +210,7 @@ def all_tickers_class_model_eval(model_path: str, model_arch: str, time_interval
     total_loss = 0
 
     if model_arch == 'transformer':
-        with custom_object_scope({'custom_categorical_crossentropy': custom_categorical_crossentropy,
-                                  'Expert': Expert, 'MoETopKLayer': MoETopKLayer}):
+        with custom_object_scope(CUSTOM_OBJECTS):
             model = load_model(model_path)
 
     for ticker in tickers:
@@ -292,8 +298,7 @@ def ticker_class_model_eval(model_path: str, model_arch: str, ticker: str, time_
 
     # Predict
     if model_arch == 'transformer':
-        with custom_object_scope({'custom_categorical_crossentropy': custom_categorical_crossentropy,
-                                  'Expert': Expert, 'MoETopKLayer': MoETopKLayer}):
+        with custom_object_scope(CUSTOM_OBJECTS):
             model = load_model(model_path, compile=False)
     y_predictions = model.predict([X, x_meta])
 

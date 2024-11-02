@@ -8,7 +8,7 @@ import tensorflow as tf
 from keras import Model
 from keras.api.models import load_model
 from keras.api.layers import LSTM, Dense, Input, MultiHeadAttention, TimeDistributed, Add, LayerNormalization, Flatten, Layer
-from keras.api.regularizers import L1L2
+from keras.api.regularizers import L2
 from keras.api.optimizers import RMSprop
 from keras.api.utils import custom_object_scope
 from keras.api.callbacks import ReduceLROnPlateau
@@ -16,7 +16,6 @@ from keras.api.metrics import F1Score
 import argparse
 
 SEED = 42
-np.random.seed(SEED)
 
 def prepare_training_data(time_interval: str, label: str):
     """
@@ -78,7 +77,7 @@ def prepare_training_data(time_interval: str, label: str):
     x_meta = np.concatenate(x_meta)
     y = np.concatenate(y)
 
-    return X, y
+    return X, x_meta, y
 
 
 def custom_categorical_crossentropy(y_true, y_pred):
@@ -129,14 +128,15 @@ def last_layer(label: str):
 
 # Adaptive layer norm
 class AdaptiveLayerNorm(Layer):
-    def __init__(self, feature_dim, epsilon=1e-8):
+    def __init__(self, feature_dim, hidden_dim, epsilon):
         super(AdaptiveLayerNorm, self).__init__()
         self.epsilon = epsilon
         self.feature_dim = feature_dim
+        self.hidden_dim = hidden_dim
 
     def build(self, input_shape):
-        self.gamma = self.add_weight(shape=(1, input_shape[-1]), initializer='ones', trainable=True)
-        self.beta = self.add_weight(shape=(1, input_shape[-1]), initializer='zeros', trainable=True)
+        self.gamma = self.add_weight(shape=(self.feature_dim, self.hidden_dim), initializer='ones', trainable=True)
+        self.beta = self.add_weight(shape=(self.feature_dim, self.hidden_dim), initializer='zeros', trainable=True)
 
     def call(self, inputs, feature_vector):
         # Apply layer normalization
@@ -144,8 +144,8 @@ class AdaptiveLayerNorm(Layer):
         normed = (inputs - mean) / tf.sqrt(variance + self.epsilon)
 
         # Condition scaling and shifting on the feature vector
-        scale = tf.matmul(feature_vector, self.gamma)
-        shift = tf.matmul(feature_vector, self.beta)
+        scale = tf.reshape(tf.matmul(feature_vector, self.gamma), [-1, 1, self.hidden_dim])
+        shift = tf.reshape(tf.matmul(feature_vector, self.beta), [-1, 1, self.hidden_dim])
 
         return normed * scale + shift
 
@@ -217,9 +217,9 @@ def get_transformer_model(shape: tuple, meta_dim: int, label: str):
         x = Add()([x, LSTM(units=x.shape[2], return_sequences=True)(x)])
         attn_layer = MultiHeadAttention(
             num_heads=num_heads, key_dim=key_dim, 
-            dropout=0.2, kernel_regularizer=L1L2(1e-3, 1e-3))(x, x)
+            dropout=0.2, kernel_regularizer=L2(1e-3))(x, x)
         x = Add()([x, attn_layer])
-        x = AdaptiveLayerNorm(feature_dim=x_meta_vec.shape[-1])(x, x_meta_vec)
+        x = AdaptiveLayerNorm(feature_dim=x_meta_vec.shape[-1], hidden_dim=x.shape[2], epsilon=1e-8)(x, x_meta_vec)
         moe = MoETopKLayer(num_experts=5, expert_units_1=ff_dim_1, expert_units_2=ff_dim_2, top_k=2)(x)
         x = Add()([x, moe])
         x = LayerNormalization(epsilon=1e-8)(x)
@@ -285,10 +285,10 @@ if __name__ == '__main__':
     # Prepare training data
     if args.train_data:
         npzfile = np.load(args.train_data)
-        X, x_meta, y = npzfile['X'], npzfile['y']
+        X, x_meta, y = npzfile['X'], npzfile['x_meta'], npzfile['y']
     else:
         X, x_meta, y = prepare_training_data(args.time_interval, args.label)
-        np.savez(f'./models/{VERSION}/{args.label}_X_xmeta_and_y.npz', X=X, y=y)
+        np.savez(f'./models/{VERSION}/{args.label}_X_x_meta_and_y.npz', X=X, x_meta=x_meta, y=y)
 
     # Prepare validation data
     X_train, X_val, x_meta_train, x_meta_val, y_train, y_val = train_test_split(

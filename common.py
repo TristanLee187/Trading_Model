@@ -174,10 +174,9 @@ def prepare_model_data(data: pd.DataFrame, label: str, col: str):
         # Get the sector vector
         sector_id = sequence_3['Sector_ID'].iloc[0]
         sector_vector = sec_to_vec[sector_id]
+        sequence_3.drop(columns=['Sector_ID'], inplace=True)
 
-        sequence = pd.concat(
-            [sequence_1, sequence_2, sequence_3],
-            axis=1).to_numpy()
+        sequence = pd.concat([sequence_1, sequence_2, sequence_3], axis=1).to_numpy()
 
         X.append(sequence)
 
