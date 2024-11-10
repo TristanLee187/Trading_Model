@@ -7,8 +7,7 @@ from sklearn.model_selection import train_test_split
 import tensorflow as tf
 from keras import Model
 from keras.api.models import load_model
-from keras.api.layers import LSTM, Dense, Input, MultiHeadAttention, TimeDistributed, Add, LayerNormalization, Flatten, Layer, Lambda, Concatenate
-from keras.api.regularizers import L2
+from keras.api.layers import LSTM, Dense, Input, MultiHeadAttention, TimeDistributed, Add, LayerNormalization, Flatten, Layer, Concatenate
 from keras.api.optimizers import RMSprop
 from keras.api.utils import custom_object_scope
 from keras.api.callbacks import ReduceLROnPlateau
@@ -130,30 +129,6 @@ def last_layer(label: str):
         return Dense(units=3, activation='softmax')
 
 
-# Adaptive layer norm
-class AdaptiveLayerNorm(Layer):
-    def __init__(self, feature_dim, hidden_dim, epsilon, **kwargs):
-        super(AdaptiveLayerNorm, self).__init__()
-        self.epsilon = epsilon
-        self.feature_dim = feature_dim
-        self.hidden_dim = hidden_dim
-
-    def build(self, input_shape):
-        self.gamma = self.add_weight(shape=(self.feature_dim, self.hidden_dim), initializer='ones', trainable=True)
-        self.beta = self.add_weight(shape=(self.feature_dim, self.hidden_dim), initializer='zeros', trainable=True)
-
-    def call(self, inputs, feature_vector):
-        # Apply layer normalization
-        mean, variance = tf.nn.moments(inputs, axes=-1, keepdims=True)
-        normed = (inputs - mean) / tf.sqrt(variance + self.epsilon)
-
-        # Condition scaling and shifting on the feature vector
-        scale = tf.reshape(tf.matmul(feature_vector, self.gamma), [-1, 1, self.hidden_dim])
-        shift = tf.reshape(tf.matmul(feature_vector, self.beta), [-1, 1, self.hidden_dim])
-
-        return normed * scale + shift
-
-
 # Single expert
 class Expert(Layer):
     def __init__(self, units1, units2):
@@ -217,14 +192,11 @@ def get_transformer_model(shape: tuple, meta_dim: int, label: str):
         keras.Model: Model with a transformer-LSTM architecture.
     """
     # Transformer block with LSTM position encoding and MoE
-    def transformer_block(x, x_meta_vec, num_heads, key_dim, ff_dim_1, ff_dim_2, adapt):
+    def transformer_block(x, num_heads, key_dim, ff_dim_1, ff_dim_2):
         x = Add()([x, LSTM(units=x.shape[2], return_sequences=True)(x)])
         attn_layer = MultiHeadAttention(num_heads=num_heads, key_dim=key_dim, dropout=0.2)(x, x)
         x = Add()([x, attn_layer])
-        if adapt:
-            x = AdaptiveLayerNorm(feature_dim=x_meta_vec.shape[-1], hidden_dim=x.shape[2], epsilon=1e-8)(x, x_meta_vec)
-        else:
-            x = LayerNormalization(epsilon=1e-8)(x)
+        x = LayerNormalization(epsilon=1e-8)(x)
         moe = MoETopKLayer(num_experts=5, expert_units_1=ff_dim_1, expert_units_2=ff_dim_2, top_k=2)(x)
         x = Add()([x, moe])
         x = LayerNormalization(epsilon=1e-8)(x)
@@ -242,22 +214,17 @@ def get_transformer_model(shape: tuple, meta_dim: int, label: str):
     meta_input_layer = Input(shape=meta_dim)
 
     # Encoder
-    encoder = transformer_stack(seq_input_layer, None, num_heads=4, key_dim=8, 
-            ff_dim_1=shape[1], ff_dim_2=shape[1], num_blocks=2, adapt=False)
+    encoder = transformer_stack(seq_input_layer, num_heads=4, key_dim=8, 
+            ff_dim_1=shape[1], ff_dim_2=shape[1], num_blocks=2)
     encoder = Dense(8, activation='gelu')(encoder)
 
     # Decoder
     decoder = Dense(shape[1], activation='gelu')(encoder)
-    decoder = transformer_stack(decoder, None, num_heads=4, key_dim=8, 
-            ff_dim_1=shape[1], ff_dim_2=shape[1], num_blocks=2, adapt=False)
+    decoder = transformer_stack(decoder, num_heads=4, key_dim=8, 
+            ff_dim_1=shape[1], ff_dim_2=shape[1], num_blocks=2)
     
-    # Pool
-    # Flatten
+    # Pool by flattening
     pooling_layer = Flatten()(decoder)
-    # LSTM
-    # pooling_layer = LSTM(units=64)(decoder)
-    # Take the last point of the sequence
-    # pooling_layer = Lambda(lambda x: x[:, -1, :])(decoder)
 
     # Output
     flat_layer = Concatenate()([pooling_layer, meta_input_layer])
@@ -272,8 +239,7 @@ def get_transformer_model(shape: tuple, meta_dim: int, label: str):
 CUSTOM_OBJECTS = {
     'custom_categorical_crossentropy': custom_categorical_crossentropy,
     'Expert': Expert,
-    'MoETopKLayer': MoETopKLayer,
-    'AdaptiveLayerNorm': AdaptiveLayerNorm
+    'MoETopKLayer': MoETopKLayer
 }
 
 
@@ -312,10 +278,6 @@ if __name__ == '__main__':
     # Prepare validation data
     X_train, X_val, x_meta_train, x_meta_val, y_train, y_val = train_test_split(
             X, x_meta, y, test_size=0.2, random_state=SEED)
-    # Use a cutoff index
-    # cutoff = int(0.8 * len(X))
-    # X_train, x_meta_train, y_train = X[:cutoff], x_meta[:cutoff], y[:cutoff]
-    # X_val, x_meta_val, y_val = X[cutoff:], x_meta[cutoff:], y[cutoff:]
     
     # Get appropriate NN model
     if args.resume is not None:

@@ -7,7 +7,7 @@ from build_data_set import build_daily_dataset, build_minute_dataset
 import keras
 from keras.api.models import load_model
 from keras.api.utils import custom_object_scope
-from train import custom_categorical_crossentropy, Expert, MoETopKLayer, AdaptiveLayerNorm
+from train import custom_categorical_crossentropy, Expert, MoETopKLayer
 from datetime import date, timedelta
 import matplotlib.pyplot as plt
 import argparse
@@ -16,8 +16,7 @@ import argparse
 CUSTOM_OBJECTS = {
     'custom_categorical_crossentropy': custom_categorical_crossentropy, 
     'Expert': Expert, 
-    'MoETopKLayer': MoETopKLayer,
-    'AdaptiveLayerNorm': AdaptiveLayerNorm
+    'MoETopKLayer': MoETopKLayer
 }
 
 
