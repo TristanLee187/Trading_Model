@@ -7,7 +7,7 @@ from sklearn.model_selection import train_test_split
 import tensorflow as tf
 from keras import Model
 from keras.api.models import load_model
-from keras.api.layers import LSTM, Dense, Input, MultiHeadAttention, TimeDistributed, Add, LayerNormalization, Flatten, Layer, Lambda
+from keras.api.layers import LSTM, Dense, Input, MultiHeadAttention, TimeDistributed, Add, LayerNormalization, Flatten, Layer, Lambda, Concatenate
 from keras.api.regularizers import L2
 from keras.api.optimizers import RMSprop
 from keras.api.utils import custom_object_scope
@@ -15,7 +15,11 @@ from keras.api.callbacks import ReduceLROnPlateau
 from keras.api.metrics import F1Score
 import argparse
 
+
 SEED = 42
+REG_FACTOR = 1e-4
+tf.keras.config.enable_unsafe_deserialization()
+
 
 def prepare_training_data(time_interval: str, label: str):
     """
@@ -213,23 +217,24 @@ def get_transformer_model(shape: tuple, meta_dim: int, label: str):
         keras.Model: Model with a transformer-LSTM architecture.
     """
     # Transformer block with LSTM position encoding and MoE
-    def transformer_block(x, x_meta_vec, num_heads, key_dim, ff_dim_1, ff_dim_2):
+    def transformer_block(x, x_meta_vec, num_heads, key_dim, ff_dim_1, ff_dim_2, adapt):
         x = Add()([x, LSTM(units=x.shape[2], return_sequences=True)(x)])
-        attn_layer = MultiHeadAttention(
-            num_heads=num_heads, key_dim=key_dim, 
-            dropout=0.2, kernel_regularizer=L2(1e-3))(x, x)
+        attn_layer = MultiHeadAttention(num_heads=num_heads, key_dim=key_dim, dropout=0.2)(x, x)
         x = Add()([x, attn_layer])
-        x = AdaptiveLayerNorm(feature_dim=x_meta_vec.shape[-1], hidden_dim=x.shape[2], epsilon=1e-8)(x, x_meta_vec)
+        if adapt:
+            x = AdaptiveLayerNorm(feature_dim=x_meta_vec.shape[-1], hidden_dim=x.shape[2], epsilon=1e-8)(x, x_meta_vec)
+        else:
+            x = LayerNormalization(epsilon=1e-8)(x)
         moe = MoETopKLayer(num_experts=5, expert_units_1=ff_dim_1, expert_units_2=ff_dim_2, top_k=2)(x)
         x = Add()([x, moe])
         x = LayerNormalization(epsilon=1e-8)(x)
         return x
 
     # Stack of Transformer blocks
-    def transformer_stack(x, x_meta_vec, num_heads, key_dim, ff_dim_1, ff_dim_2, num_blocks):
+    def transformer_stack(x, x_meta_vec, num_heads, key_dim, ff_dim_1, ff_dim_2, num_blocks, adapt):
         for _ in range(num_blocks):
             x = transformer_block(x, x_meta_vec, num_heads=num_heads, key_dim=key_dim, 
-                                  ff_dim_1=ff_dim_1, ff_dim_2=ff_dim_2)
+                                  ff_dim_1=ff_dim_1, ff_dim_2=ff_dim_2, adapt=adapt)
         return x
 
     # Define the Transformer model
@@ -237,27 +242,39 @@ def get_transformer_model(shape: tuple, meta_dim: int, label: str):
     meta_input_layer = Input(shape=meta_dim)
 
     # Encoder
-    encoder = transformer_stack(seq_input_layer, meta_input_layer, 
-                                num_heads=4, key_dim=8, ff_dim_1=shape[1], ff_dim_2=shape[1], num_blocks=2)
+    encoder = transformer_stack(seq_input_layer, None, num_heads=4, key_dim=8, 
+            ff_dim_1=shape[1], ff_dim_2=shape[1], num_blocks=2, adapt=False)
     encoder = Dense(8, activation='gelu')(encoder)
 
     # Decoder
     decoder = Dense(shape[1], activation='gelu')(encoder)
-    decoder = transformer_stack(decoder, meta_input_layer,
-                                num_heads=4, key_dim=8, ff_dim_1=shape[1], ff_dim_2=shape[1], num_blocks=2)
+    decoder = transformer_stack(decoder, None, num_heads=4, key_dim=8, 
+            ff_dim_1=shape[1], ff_dim_2=shape[1], num_blocks=2, adapt=False)
     
     # Pool
-    # pooling_layer = Flatten()(decoder)
+    # Flatten
+    pooling_layer = Flatten()(decoder)
+    # LSTM
+    # pooling_layer = LSTM(units=64)(decoder)
     # Take the last point of the sequence
-    pooling_layer = Lambda(lambda x: x[:, -1, :])(decoder)
+    # pooling_layer = Lambda(lambda x: x[:, -1, :])(decoder)
 
     # Output
-    dense_layer_1 = Dense(units=128, activation='gelu')(pooling_layer)
+    flat_layer = Concatenate()([pooling_layer, meta_input_layer])
+    dense_layer_1 = Dense(units=128, activation='gelu')(flat_layer)
     dense_layer_2 = Dense(units=64, activation='gelu')(dense_layer_1)
     output_layer = last_layer(label)(dense_layer_2)
     model = Model(inputs=[seq_input_layer, meta_input_layer], outputs=output_layer)
 
     return model
+
+
+CUSTOM_OBJECTS = {
+    'custom_categorical_crossentropy': custom_categorical_crossentropy,
+    'Expert': Expert,
+    'MoETopKLayer': MoETopKLayer,
+    'AdaptiveLayerNorm': AdaptiveLayerNorm
+}
 
 
 if __name__ == '__main__':
@@ -294,11 +311,15 @@ if __name__ == '__main__':
 
     # Prepare validation data
     X_train, X_val, x_meta_train, x_meta_val, y_train, y_val = train_test_split(
-            X, x_meta, y, test_size=0.2, random_state=42)
+            X, x_meta, y, test_size=0.2, random_state=SEED)
+    # Use a cutoff index
+    # cutoff = int(0.8 * len(X))
+    # X_train, x_meta_train, y_train = X[:cutoff], x_meta[:cutoff], y[:cutoff]
+    # X_val, x_meta_val, y_val = X[cutoff:], x_meta[cutoff:], y[cutoff:]
     
     # Get appropriate NN model
     if args.resume is not None:
-        with custom_object_scope({'Expert': Expert, 'MoETopKLayer': MoETopKLayer}):
+        with custom_object_scope(CUSTOM_OBJECTS):
             model = load_model(args.resume, compile=False)
     else:
         model = get_transformer_model(X[0].shape, x_meta[0].shape, args.label)
@@ -315,7 +336,8 @@ if __name__ == '__main__':
     
     # Train!
     lr_scheduler = ReduceLROnPlateau(monitor='loss', factor=0.5, patience=5, min_lr = 1e-7)
-    model.fit([X_train, x_meta_train], y_train, epochs=args.epochs, batch_size=(args.batch_size if args.batch_size is not None else 32),
+    model.fit([X_train, x_meta_train], y_train, epochs=args.epochs, 
+                batch_size=(args.batch_size if args.batch_size is not None else 32),
                 validation_data=([X_val, x_meta_val], y_val), 
                 callbacks=[lr_scheduler])
     

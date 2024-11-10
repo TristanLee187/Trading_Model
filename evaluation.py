@@ -12,14 +12,17 @@ from datetime import date, timedelta
 import matplotlib.pyplot as plt
 import argparse
 
+
 CUSTOM_OBJECTS = {
-        'custom_categorical_crossentropy': custom_categorical_crossentropy, 
-        'Expert': Expert, 
-        'MoETopKLayer': MoETopKLayer,
-        'AdaptiveLayerNorm': AdaptiveLayerNorm
-    }
+    'custom_categorical_crossentropy': custom_categorical_crossentropy, 
+    'Expert': Expert, 
+    'MoETopKLayer': MoETopKLayer,
+    'AdaptiveLayerNorm': AdaptiveLayerNorm
+}
+
 
 keras.config.enable_unsafe_deserialization()
+
 
 def build_eval_data(ticker: str, time_interval: str, start_date: date, end_date: date = None):
     """
