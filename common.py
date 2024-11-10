@@ -34,7 +34,7 @@ sec_to_vec = {
 }
 
 # Version folder to save models and plots to.
-VERSION = 'v8'
+VERSION = 'final'
 
 # Number of time points to use in defining sequence data.
 WINDOW_LENGTH = 30
