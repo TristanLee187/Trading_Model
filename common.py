@@ -19,27 +19,16 @@ sp_100_tickers = ['AAPL', 'ABBV', 'ABT', 'ACN', 'ADBE', 'AIG', 'AMD', 'AMGN', 'A
 tickers = sp_100_tickers
 
 # Sector to vector mapping
-sec_to_vec = {
-    1: [0.2, 0.8, 0, 0, 0, 0, 0],
-    2: [0.35, 0.5, 0, 0.15, 0, 0, 0],
-    3: [0.8, 0, 0, 0, 0, 0.1, 0.1],
-    4: [0.5, 0.1, 0.4, 0, 0, 0, 0],
-    5: [0.2, 0, 0.7, 0, 0, 0, 0.1],
-    6: [0.4, 0, 0.5, 0.1, 0, 0, 0],
-    7: [0.05, 0, 0.15, 0.8, 0, 0, 0],
-    8: [0.1, 0, 0, 0, 0, 0, 0.9],
-    9: [0.1, 0.1, 0, 0, 0, 0, 0.8],
-    10: [0.1, 0, 0.1, 0, 0.8, 0, 0],
-    11: [0.2, 0, 0, 0, 0, 0.8, 0]
-}
+# One-hot
+sec_to_vec = np.eye(11)
 
 # Version folder to save models and plots to.
-VERSION = 'final'
+VERSION = 'v9'
 
 # Number of time points to use in defining sequence data.
 WINDOW_LENGTH = 30
 
-# Number of time points to use for defibing buy/sell labels (for constrained linear regression).
+# Number of time points to use for defining buy/sell labels (for constrained linear regression).
 FUTURE_WINDOW_LENGTH = 30
 
 # Proportional change to use when classifying buy/sell labels.

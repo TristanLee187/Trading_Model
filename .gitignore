@@ -166,19 +166,12 @@ cython_debug/
 
 # My market data
 daily_market_data/
-minute_market_data/
 
 # Models
 models/
 
-# Testing plots
-plots/testing/
-
 # Exploration
 exploration/
-
-# Dev plots
-plots/v7/
 
 # Alpha Vantage fundamental data
 alpha_vantage_api_key.py

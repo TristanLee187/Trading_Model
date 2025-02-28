@@ -20,15 +20,11 @@ REG_FACTOR = 1e-4
 tf.keras.config.enable_unsafe_deserialization()
 
 
-def prepare_training_data(time_interval: str, label: str):
+def prepare_training_data(label: str):
     """
     Prepare training data (inputs and ground truth labels).
 
     Args:
-        time_interval (str): String defining the time interval data to use in training:
-            "1m": Use the "miniute_market_data" data. Sequences are limited to within a day
-                (they do not span multiple days).
-            "1d": Use the "daily_market_data" data. Sequences span any gaps in days (weekends, holidays, etc.).
         label (str): String indicating what value to use as the labels:
             "price": Use the price of the given column.
             "signal": Use regression to indicate upward/downward/neither movement in following time points.
@@ -40,11 +36,8 @@ def prepare_training_data(time_interval: str, label: str):
     # Init training instances, metadata, and labels
     X, x_meta, y = [], [], []
 
-    # Distinguish which directory to read from based on the time interval
-    dir_prefix = 'minute' if time_interval == '1m' else 'daily'
-
     # Read the master list
-    tickers_df = pd.read_csv(f'./{dir_prefix}_market_data/all_tickers.csv')
+    tickers_df = pd.read_csv(f'./daily_market_data/all_tickers.csv')
 
     tickers_df_grouped = tickers_df.groupby(by=['Ticker'])
 
@@ -52,27 +45,13 @@ def prepare_training_data(time_interval: str, label: str):
     for ticker in tickers:
         data = tickers_df_grouped.get_group((ticker,))
 
-        if time_interval == '1m':
-            # Break down each file into its component days
-            daily_data = data.groupby(by=['Year', 'Month', 'Day'])
-            days = daily_data.groups.keys()
-            for day in days:
-                day_data = daily_data.get_group(day)
-                ticker_X, ticker_x_meta, ticker_y, mins, scales = prepare_model_data(
-                    day_data, label, 'Close')
+        # Just use the ticker's whole file data as a contiguous training set
+        ticker_X, ticker_x_meta, ticker_y, mins, scales = prepare_model_data(
+            data, label, 'Close')
 
-                X.append(ticker_X)
-                x_meta.append(ticker_x_meta)
-                y.append(ticker_y)
-
-        elif time_interval == '1d':
-            # Just use the ticker's whole file data as a contiguous training set
-            ticker_X, ticker_x_meta, ticker_y, mins, scales = prepare_model_data(
-                data, label, 'Close')
-
-            X.append(ticker_X)
-            x_meta.append(ticker_x_meta)
-            y.append(ticker_y)
+        X.append(ticker_X)
+        x_meta.append(ticker_x_meta)
+        y.append(ticker_y)
 
         print(f'{ticker} is done')
 
@@ -189,7 +168,7 @@ def get_transformer_model(shape: tuple, meta_dim: int, label: str):
         label (str):  The label type to train on.
 
     Returns:
-        keras.Model: Model with a transformer-LSTM architecture.
+        keras.Model: Model with a transformer-LSTM-MoE architecture.
     """
     # Transformer block with LSTM position encoding and MoE
     def transformer_block(x, num_heads, key_dim, ff_dim_1, ff_dim_2):
@@ -250,8 +229,6 @@ if __name__ == '__main__':
     )
     parser.add_argument('-m', '--model', type=str, help='model type/architecture to use',
                         choices=['transformer'], required=True)
-    parser.add_argument('-t', '--time_interval', type=str, help='time interval data to train on',
-                        choices=['1m', '1d'], required=True)
     parser.add_argument('-d', '--train_data', type=str, help='if set, path to file containing X and y sequence data')
     parser.add_argument('-l', '--label', type=str, help='labels to use for each instance',
                         choices=['price', 'signal'], required=True)
@@ -309,8 +286,8 @@ if __name__ == '__main__':
     elif args.label == 'signal':
         loss_func_str = 'cce'
 
-    tag = './models/{}/{}_{}_close-{}_{}'.format(
-        VERSION, args.model, args.time_interval, args.label, loss_func_str
+    tag = './models/{}/{}_close-{}_{}'.format(
+        VERSION, args.model, args.label, loss_func_str
     )
 
     model.save(f'{tag}_model.keras')
