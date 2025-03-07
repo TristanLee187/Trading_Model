@@ -91,7 +91,8 @@ ignore_cols = ['Open', 'High', 'Low', 'Adj Close', 'Year', 'Month', 'Day', 'Tick
 
 # Columns to not normalize (using the closing price) for the training data.
 keep_cols = ['Proportional_Change', 'Stochastic_Oscillator', 'RSI', 'Volume',
-             'estimate_EPS', 'report_EPS', 'surprise_percent', 'PE', 'Sector_ID']
+             'estimate_EPS', 'report_EPS', 'surprise_percent', 'PE', 'Sector_ID',
+             'sector_avg_prop_change']
 
 
 def prepare_model_data(data: pd.DataFrame, label: str, col: str):
@@ -101,7 +102,7 @@ def prepare_model_data(data: pd.DataFrame, label: str, col: str):
         in the given column.
 
     Args:
-        data (pandas.DataFrame): Pandas DataFrame containing the raw CSV data.
+        data (pandas.DataFrame): Pandas DataFrame containing the raw CSV data (for a specific ticker).
         label (str): String indicating what value to use as the labels:
             "price": Use the price of the given column.
             "signal": Use regression to indicate upward/downward/neither movement.

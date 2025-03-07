@@ -8,8 +8,9 @@ This repository contains a Python and TensorFlow/Keras/Scikit-learn machine lear
 For modularity, each of these parts has a dedicated source file that can be run from the command line and produces some output used later in the pipeline.
 
 ## Usage
-Typical usage of the pipeline will go as follows:
+Typical usage of the pipeline should go as follows:
 - In the `common.py` file, set hyperparameters such as the length of the sequence and the list of tickers to use when building the dataset and training.
+- Run `fundamentals.py` to update a single CSV file with fundamental data for all tickers. This will update the appropriate file at `./daily_market_data/` (not in this repository for space's sake). Assumes an old file already exists at this location (working on adding "initialize and export" functionality, instead of just "update"...).
 - Run `build_data_set.py` to export a single CSV file with daily market data for all tickers. This will create the appropriate file at `./daily_market_data/` (not in this repository for space's sake). The years 2000-2023 are used.
 - Run `train.py` to train a model depending on, among other things, the desired architecture and labels. I chose to use a transformer and LSTM based architecture since they focus on sequence data, appropriate for time series, along with mixture of experts in the transformer blocks. The generated model will be saved to `./models/VERSION/`, where `VERSION` is set in the `common.py` file. None of the models are included in this repository, again for space's sake.
 - Run `evaluate.py` to evaluate the trained model on unseen data. This is all 2024 data up to and including December. Produce plots for specific tickers to evaluate with the human eye, or for buy/sell signals specifically, also simulate a simple strategy using the signals across all tickers to evaluate the average profit/loss. These outputs will be saved to `./plots/VERSON/`. I've included most of my own output across different versions.
@@ -43,6 +44,4 @@ optional arguments:
 ```
 
 ## My Results
-My most successful regression model (predicting the next day's price) mostly predicted a price pretty close to the previous day's price. Visually, this type of prediction manifects as a small gap between the ground truth and predictions, with the predictions chasing the previous day's price (in general, anyway). Outside of this, the model appears to give importance to a "momentum" of the previous days' prices; for instance, if price increased for 3 consecutive days, the model "adds" some positive amount to its prediction. `./plots/final/prices` includes additional plots.
-
-My most successful classification models (predicting buy, sell, or do nothing signals) had mixed performance across different tickers. `./plots/final/signals` has example plots of some successful (AAPL, NVDA, TSLA) and unsuccessful (INTC) predictions. I used a simple strategy that soley depends on the predicted signals and consists of just buying/selling the stock (not options): buy a stock whenever there's a buy signal, or sell all stock whenever there's a sell signal, and do nothing otherwise. Using this strategy produced a 12.92% when averaged across all tickers (in my case the S&P 100 companies). The model seems to predict no buy actions for many companies, with most of its profit coming from choosing a relatively small number of tickers. It also very seldom predicts sell signals.
+Coming soon...

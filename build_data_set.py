@@ -5,6 +5,7 @@ import indicators as ind
 from datetime import date, timedelta
 from common import tickers
 import pandas as pd
+import argparse
 
 # Sector names to unique ids
 sec_to_id = {
@@ -21,9 +22,10 @@ sec_to_id = {
     'Real Estate': 10
 }
 
-def build_daily_dataset(ticker: str, start_date: date, end_date: date):
+def build_daily_dataset_helper(ticker: str, start_date: date, end_date: date):
     """
-    Build a DataFrame containing daily market data of a ticker between 2 dates.
+    Build a DataFrame containing daily market data of a ticker between 2 dates, BUT
+        excluding the sector average proportional changes.
 
     Args:
         ticker (str): Ticker of the company, index, etc..
@@ -33,7 +35,8 @@ def build_daily_dataset(ticker: str, start_date: date, end_date: date):
             If the market is not open this day, uses the last open day before this day instead.
 
     Returns:
-        pandas.DataFrame: A DataFrame containing the ticker's market data for the given date range.
+        pandas.DataFrame: A DataFrame containing the ticker's market data for the given date range, BUT
+            excluding the sector average proportional changes.
     """
 
     # Define the first day to fetch data from as 1 year before the start_date, so that 200 SMA/EMA
@@ -122,16 +125,26 @@ def build_daily_dataset(ticker: str, start_date: date, end_date: date):
     return data
 
 
-if __name__ == '__main__':
+def build_daily_dataset_full(start_date: date, end_date: date):
+    """
+    Build a DataFrame containing daily market data of all tickers between 2 dates, BUT
+        excluding the sector average proportional changes.
+
+    Args:
+        start_date (datetime.date): First day of data to include in the file.
+            If the market is not open this day, uses the first open day after this day instead.
+        end_date (datetime.date): Last day of data to include in the file.
+            If the market is not open this day, uses the last open day before this day instead.
+
+    Returns:
+        pandas.DataFrame: A DataFrame containing all tickers' market data for the given date range, BUT
+            excluding the sector average proportional changes.
+    """
     # Init single dataframe to hold all data.
     tickers_df = []
 
-    # Start from 2000-01-01 and end on 2023-12-31 (leaving out 2024 for testing)
-    s = date(2000, 1, 1)
-    e = date(2023, 12, 31)
-
     for ticker in tickers:
-        data = build_daily_dataset(ticker, s, e)
+        data = build_daily_dataset_helper(ticker, start_date, end_date)
         data['Ticker'] = ticker
 
         # Add to master list
@@ -140,4 +153,45 @@ if __name__ == '__main__':
         print(f'{ticker} is done')
 
     tickers_df = pd.concat(tickers_df)
-    tickers_df.to_csv('./daily_market_data/all_tickers.csv', index=False)
+    return tickers_df
+
+
+def add_sector_prop_change(data: pd.DataFrame):
+    """
+    Given a fill daily dataset (returned by "build_daily_dataset_full), add a column containing 
+        the average proportional change for each sector across each day.
+
+    Args:
+        data (pandas.DataFrame): Full daily dataset, returned by "buid_daily_dataset_full."
+
+    Returns:
+        pandas.DataFrame: New Dataframe, the input dataframe with a new column "sector_avg_prop_change."
+    """
+    grouped_prop_changes = data.groupby(by=['Sector_ID', 'Year', 'Month', 'Day']).agg({'Proportional_Change': 'mean'}).reset_index()
+    grouped_prop_changes.rename(columns={"Proportional_Change": "sector_avg_prop_change"}, inplace=True)
+    
+    return data.merge(grouped_prop_changes, how='left')
+
+
+if __name__ == '__main__':
+    # Set up argparser
+    parser = argparse.ArgumentParser(
+        description="Build CSV files for Training and Evaluation Data"
+    )
+    parser.add_argument('-d', '--dataset', type=str, help='train or eval data', 
+                        choices=['train', 'eval'], required=True)
+    args = parser.parse_args()
+    
+    if args.dataset == 'train':
+        # Start from 2000-01-01 and end on 2023-12-31 (leaving out 2024 for testing)
+        s = date(2000, 1, 1)
+        e = date(2023, 12, 31)
+
+    elif args.dataset == 'eval':
+        # All of 2024
+        s = date(2024, 1, 1)
+        e = date(2024, 12, 31)
+
+    tickers_df = build_daily_dataset_full(s, e)
+    tickers_df = add_sector_prop_change(tickers_df)
+    tickers_df.to_csv(f'./daily_market_data/all_tickers_{args.dataset}.csv', index=False)

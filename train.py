@@ -35,7 +35,7 @@ def prepare_training_data(label: str):
     X, x_meta, y = [], [], []
 
     # Read the master list
-    tickers_df = pd.read_csv(f'./daily_market_data/all_tickers.csv')
+    tickers_df = pd.read_csv(f'./daily_market_data/all_tickers_train.csv')
 
     tickers_df_grouped = tickers_df.groupby(by=['Ticker'])
 

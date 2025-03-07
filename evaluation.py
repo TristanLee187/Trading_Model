@@ -16,6 +16,7 @@ import argparse
 keras.config.enable_unsafe_deserialization()
 
 
+# TODO: fix this to read eval data directly from disk
 def build_eval_data(ticker: str, start_date: date, end_date: date = None):
     """
     Prepare data needed for evaluation.
@@ -27,19 +28,9 @@ def build_eval_data(ticker: str, start_date: date, end_date: date = None):
 
     Returns:
         pandas.DataFrame, pandas.Series: Market data, and a time column to use for plotting.
-            The data contains enough previous data to make sequences ending before start_date, 
-            thus the model can make predictions for start_date.
     """
-    # Include enough previous data so that predictions can be made for start_date
-    data = build_daily_dataset(
-        ticker, start_date - timedelta(days=2 * WINDOW_LENGTH), end_date)
+    data = build_daily_dataset(ticker, start_date, end_date)
     time_col = pd.to_datetime(data[['Year', 'Month', 'Day']]).dt.date
-    # Cut off dates that are too early
-    for i in range(len(data)):
-        if time_col.iloc[i+WINDOW_LENGTH] >= start_date:
-            data = data[i:]
-            break
-    time_col = time_col[time_col >= start_date]
 
     return data, time_col
 
