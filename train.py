@@ -86,7 +86,7 @@ if __name__ == '__main__':
         npzfile = np.load(args.train_data)
         X, x_meta, y = npzfile['X'], npzfile['x_meta'], npzfile['y']
     else:
-        X, x_meta, y = prepare_training_data(args.time_interval, args.label)
+        X, x_meta, y = prepare_training_data(args.label)
         np.savez(f'./models/{VERSION}/{args.label}_X_x_meta_and_y.npz', X=X, x_meta=x_meta, y=y)
 
     # Prepare validation data

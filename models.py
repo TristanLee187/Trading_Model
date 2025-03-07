@@ -39,6 +39,21 @@ def custom_categorical_crossentropy(y_true, y_pred):
     return weighted_loss
 
 
+# Attention pooling
+class AttentionPooling(Layer):
+    def __init__(self):
+        super(AttentionPooling, self).__init__()
+        self.attention = None
+        
+    def build(self, input_shape):
+        self.attention = Dense(1)
+        
+    def call(self, inputs):
+        attn_scores = self.attention(inputs)
+        attn_weights = tf.nn.softmax(attn_scores, axis=1)
+        return tf.reduce_sum(inputs * attn_weights, axis=1)
+    
+
 # Single expert
 class Expert(Layer):
     def __init__(self, units1, units2):
@@ -57,29 +72,27 @@ class Expert(Layer):
         return self.dense2(x)
     
 
-# Mixture of experts top k layer
+# Mixture of experts top k layer, attention pooling
 class MoETopKLayer(Layer):
-    def __init__(self, num_experts, expert_units_1, expert_units_2, top_k, **kwargs):
-        super(MoETopKLayer, self).__init__(**kwargs)
+    def __init__(self, num_experts, expert_units_1, expert_units_2, top_k):
+        super(MoETopKLayer, self).__init__()
         self.num_experts = num_experts
         self.expert_units_1 = expert_units_1
         self.expert_units_2 = expert_units_2
         self.top_k = top_k
 
         self.experts = None
-        # Pool based on simple attention
-        self.attention_weights = None
+        self.attention_pooling = None
         self.gating_network = None
 
     def build(self, input_shape):
         self.experts = [Expert(self.expert_units_1, self.expert_units_2) for _ in range(self.num_experts)]
-        self.attention_weights = Dense(1)
+        self.attention_pooling = AttentionPooling()
         self.gating_network = Dense(self.num_experts, activation='softmax')
 
     def call(self, inputs):
         # Attention pooling
-        attn_scores = tf.nn.softmax(self.attention_weights(inputs), axis=1)
-        attn_inputs = tf.reduce_sum(inputs * attn_scores, axis=1)
+        attn_inputs = self.attention_pooling(inputs)
         # Get probs for each expert
         gate_outputs = self.gating_network(attn_inputs)
         # Get indices of top k experts
