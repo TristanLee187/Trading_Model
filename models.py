@@ -5,7 +5,8 @@ import tensorflow as tf
 from keras import Model
 from keras.api.layers import (
     LSTM, Dense, Input, MultiHeadAttention,
-    Add, LayerNormalization, Flatten, Layer, Concatenate)
+    Add, LayerNormalization, Layer, Concatenate
+)
 
 
 REG_FACTOR = 1e-4
@@ -33,8 +34,7 @@ def custom_categorical_crossentropy(y_true, y_pred):
 
     y_pred = tf.clip_by_value(y_pred, 1e-7, 1.0)
     ce_loss = -tf.reduce_sum(y_true * tf.math.log(y_pred), axis=-1)
-    weights_tensor = tf.reduce_sum(tf.expand_dims(
-        weights, axis=0) * tf.expand_dims(y_true, axis=-1), axis=-2)
+    weights_tensor = tf.reduce_sum(tf.expand_dims(weights, axis=0) * tf.expand_dims(y_true, axis=-1), axis=-2)
     weighted_loss = ce_loss * tf.reduce_sum(weights_tensor, axis=-1)
     return weighted_loss
 
@@ -67,7 +67,7 @@ class MoETopKLayer(Layer):
         self.top_k = top_k
 
         self.experts = None
-        # Pool based on "attention"
+        # Pool based on simple attention
         self.attention_weights = None
         self.gating_network = None
 
@@ -150,10 +150,11 @@ def get_transformer_model(shape: tuple, meta_dim: int, label: str):
 
     # Transformers!
     transformer_blocks = transformer_stack(seq_input_layer, num_heads=4, key_dim=8, 
-            ff_dim_1=shape[1], ff_dim_2=shape[1], num_blocks=4)
+        ff_dim_1=shape[1], ff_dim_2=shape[1], num_blocks=4)
     
-    # Pool by flattening
-    pooling_layer = Flatten()(transformer_blocks)
+    # Simple Attention pooling
+    attn_scores = tf.nn.softmax(Dense(1)(transformer_blocks), axis=1)
+    pooling_layer = tf.reduce_sum(transformer_blocks * attn_scores, axis=1)
 
     # Output
     flat_layer = Concatenate()([pooling_layer, meta_input_layer])

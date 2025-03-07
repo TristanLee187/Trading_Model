@@ -73,11 +73,9 @@ def buy_sell_label(data: pd.DataFrame, index: int, col: str, mi: float, scale: f
 
     # Choose a label depending on the slope of the constrained regression line using the next
     # FUTURE_WINDOW_LENGTH time steps.
-    today_price = (data[col].iloc[index+wl-1])
-    next_prices = (
-        data[col].iloc[index+wl: index+wl+fwl])
-    slope, intercept = best_fit_line_through_today_price(
-        today_price, next_prices)
+    today_price = data[col].iloc[index+wl-1]
+    next_prices = data[col].iloc[index+wl: index+wl+fwl]
+    slope, intercept = best_fit_line_through_today_price(today_price, next_prices)
     delta = FUTURE_WINDOW_LENGTH * slope / today_price
 
     if delta <= -percent_change_slope:

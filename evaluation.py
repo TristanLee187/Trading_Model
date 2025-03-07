@@ -71,8 +71,7 @@ def reg_model_eval(model_path: str, model_arch: str, ticker: str,
     data, time_col = build_eval_data(ticker, start_date, end_date)
 
     # Prepare test data and scalers to plot the real values
-    X, x_meta, y_gt, scaler_mins, scaler_scales = prepare_model_data(
-        data, label, 'Close')
+    X, x_meta, y_gt, scaler_mins, scaler_scales = prepare_model_data(data, label, 'Close')
 
     # Predict
     if model_arch == 'transformer':
@@ -97,10 +96,8 @@ def reg_model_eval(model_path: str, model_arch: str, ticker: str,
 
     # Percentage of days correctly classified as positive/negative returns.
     X_prices = data['Close'].iloc[WINDOW_LENGTH-1:-1]
-    correct_incorrect = np.sign(
-        (y_gt - X_prices) * (y_predictions - X_prices))
-    percent_correct = len(
-        [sign for sign in correct_incorrect if sign == 1]) / len(y_gt)
+    correct_incorrect = np.sign((y_gt - X_prices) * (y_predictions - X_prices))
+    percent_correct = len([sign for sign in correct_incorrect if sign == 1]) / len(y_gt)
     caption += f"Percent Correctly Classified: {round(percent_correct, 10) * 100}%"
     print(caption)
 
@@ -194,8 +191,7 @@ def all_tickers_class_model_eval(model_path: str, model_arch: str,
         data, time_col = build_eval_data(ticker, start_date, end_date)
 
         # Prepare test data
-        X, x_meta, y_gt, scaler_mins, scaler_scales = prepare_model_data(
-            data, 'signal', 'Close')
+        X, x_meta, y_gt, scaler_mins, scaler_scales = prepare_model_data(data, 'signal', 'Close')
 
         # Predict
         y_predictions = model.predict([X, x_meta])
@@ -261,8 +257,7 @@ def ticker_class_model_eval(model_path: str, model_arch: str, ticker: str,
     data, time_col = build_eval_data(ticker, start_date, end_date)
 
     # Prepare test data and scalers to plot the real values
-    X, x_meta, y_gt, scaler_mins, scaler_scales = prepare_model_data(
-        data, 'signal', 'Close')
+    X, x_meta, y_gt, scaler_mins, scaler_scales = prepare_model_data(data, 'signal', 'Close')
 
     # Predict
     if model_arch == 'transformer':

@@ -73,8 +73,7 @@ def build_daily_dataset(ticker: str, start_date: date, end_date: date):
     data['MACD'] = ind.macd(data['Close'], 12, 26)
 
     # Calculate the stochastic oscillator.
-    data['Stochastic_Oscillator'] = ind.stochastic_oscillator(
-        data['Close'], 14)
+    data['Stochastic_Oscillator'] = ind.stochastic_oscillator(data['Close'], 14)
 
     # Calculate the RSI.
     data['RSI'] = ind.rsi(data['Close'], 14)
@@ -85,17 +84,30 @@ def build_daily_dataset(ticker: str, start_date: date, end_date: date):
     # Join with fundamentals data
     fund_data = pd.read_csv("daily_market_data/quarterly_earnings.csv")
     ticker_fund_data = fund_data[fund_data['symbol'] == ticker].drop(columns=['symbol'])
+
     # Resolve same day reports by taking the average
     ticker_fund_data = ticker_fund_data.groupby(['Year', 'Month', 'Day'], as_index=False).mean()
+
+    # Add a day to all earnings dates to guarentee they are available on its day
+    ticker_fund_data['date'] = pd.to_datetime(ticker_fund_data[['Year', 'Month', 'Day']])
+    ticker_fund_data['date'] += timedelta(days=1)
+    ticker_fund_data['Year'] = ticker_fund_data['date'].dt.year
+    ticker_fund_data['Month'] = ticker_fund_data['date'].dt.month
+    ticker_fund_data['Day'] = ticker_fund_data['date'].dt.day
+    ticker_fund_data.drop(columns=['date'], inplace=True)
+
     # Fix some values
     ticker_fund_data['estimate_EPS'] = ticker_fund_data['estimate_EPS'].replace(0, None).ffill()
     ticker_fund_data['report_EPS'] = ticker_fund_data['report_EPS'].replace(0, None).ffill()
     ticker_fund_data['surprise_percent'] = (ticker_fund_data['report_EPS'] - ticker_fund_data['estimate_EPS'])/ticker_fund_data['estimate_EPS']
+    
     # Extract the dates to be used for filtering later
     dates = data.index.date.copy()
     data = data.merge(ticker_fund_data, how="left")
+    
     # P/E ratio
     data['PE'] = data['Close'] / data['report_EPS'].ffill()
+    
     # Smooth EPS data slightly
     data['estimate_EPS'] = ind.ema(data['estimate_EPS'], size=4)
     data['report_EPS'] = ind.ema(data['report_EPS'], size=4)

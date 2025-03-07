@@ -44,8 +44,7 @@ def prepare_training_data(label: str):
         data = tickers_df_grouped.get_group((ticker,))
 
         # Just use the ticker's whole file data as a contiguous training set
-        ticker_X, ticker_x_meta, ticker_y, mins, scales = prepare_model_data(
-            data, label, 'Close')
+        ticker_X, ticker_x_meta, ticker_y, mins, scales = prepare_model_data(data, label, 'Close')
 
         X.append(ticker_X)
         x_meta.append(ticker_x_meta)
@@ -91,8 +90,7 @@ if __name__ == '__main__':
         np.savez(f'./models/{VERSION}/{args.label}_X_x_meta_and_y.npz', X=X, x_meta=x_meta, y=y)
 
     # Prepare validation data
-    X_train, X_val, x_meta_train, x_meta_val, y_train, y_val = train_test_split(
-            X, x_meta, y, test_size=0.2, random_state=SEED)
+    X_train, X_val, x_meta_train, x_meta_val, y_train, y_val = train_test_split(X, x_meta, y, test_size=0.2, random_state=SEED)
     
     # Get appropriate NN model
     if args.resume is not None:
@@ -107,7 +105,8 @@ if __name__ == '__main__':
     elif args.label == 'signal':
         model.compile(
             optimizer=RMSprop(learning_rate=(args.learning_rate if args.learning_rate is not None else 0.001)),
-            loss=custom_categorical_crossentropy, metrics=[F1Score()])
+            loss=custom_categorical_crossentropy, 
+            metrics=[F1Score()])
     
     model.summary()
     
