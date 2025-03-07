@@ -166,8 +166,7 @@ def get_transformer_model(shape: tuple, meta_dim: int, label: str):
         ff_dim_1=shape[1], ff_dim_2=shape[1], num_blocks=4)
     
     # Simple Attention pooling
-    attn_scores = tf.nn.softmax(Dense(1)(transformer_blocks), axis=1)
-    pooling_layer = tf.reduce_sum(transformer_blocks * attn_scores, axis=1)
+    pooling_layer = AttentionPooling()(transformer_blocks)
 
     # Output
     flat_layer = Concatenate()([pooling_layer, meta_input_layer])

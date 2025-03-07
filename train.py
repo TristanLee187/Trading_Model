@@ -112,7 +112,7 @@ if __name__ == '__main__':
     
     # Train!
     lr_scheduler = ReduceLROnPlateau(monitor='loss', factor=0.5, patience=5, min_lr = 1e-7)
-    model.fit([X_train, x_meta_train], y_train, epochs=args.epochs, 
+    model.fit([X_train, x_meta_train], y_train, epochs=(args.epochs if args.epochs is not None else 20), 
                 batch_size=(args.batch_size if args.batch_size is not None else 32),
                 validation_data=([X_val, x_meta_val], y_val), 
                 callbacks=[lr_scheduler])
