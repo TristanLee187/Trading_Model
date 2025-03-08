@@ -41,8 +41,8 @@ def custom_categorical_crossentropy(y_true, y_pred):
 
 # Attention pooling
 class AttentionPooling(Layer):
-    def __init__(self):
-        super(AttentionPooling, self).__init__()
+    def __init__(self, **kwargs):
+        super(AttentionPooling, self).__init__(**kwargs)
         self.attention = None
         
     def build(self, input_shape):
@@ -56,8 +56,8 @@ class AttentionPooling(Layer):
 
 # Single expert
 class Expert(Layer):
-    def __init__(self, units1, units2):
-        super(Expert, self).__init__()
+    def __init__(self, units1, units2, **kwargs):
+        super(Expert, self).__init__(**kwargs)
         self.units1 = units1
         self.units2 = units2
         self.dense1 = None
@@ -74,8 +74,8 @@ class Expert(Layer):
 
 # Mixture of experts top k layer, attention pooling
 class MoETopKLayer(Layer):
-    def __init__(self, num_experts, expert_units_1, expert_units_2, top_k):
-        super(MoETopKLayer, self).__init__()
+    def __init__(self, num_experts, expert_units_1, expert_units_2, top_k, **kwargs):
+        super(MoETopKLayer, self).__init__(**kwargs)
         self.num_experts = num_experts
         self.expert_units_1 = expert_units_1
         self.expert_units_2 = expert_units_2
@@ -181,5 +181,6 @@ def get_transformer_model(shape: tuple, meta_dim: int, label: str):
 CUSTOM_OBJECTS = {
     'custom_categorical_crossentropy': custom_categorical_crossentropy,
     'Expert': Expert,
-    'MoETopKLayer': MoETopKLayer
+    'MoETopKLayer': MoETopKLayer,
+    'AttentionPooling': AttentionPooling
 }
