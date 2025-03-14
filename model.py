@@ -7,9 +7,11 @@ from keras.api.layers import (
     LSTM, Dense, Input, MultiHeadAttention,
     Add, LayerNormalization, Layer, Concatenate
 )
+from keras.api.regularizers import l2
 
 
 REG_FACTOR = 1e-4
+DROPOUT_FACTOR = 0.1
 
 
 def custom_categorical_crossentropy(y_true, y_pred):
@@ -46,39 +48,42 @@ class AttentionPooling(Layer):
         self.attention = None
         
     def build(self, input_shape):
+        # Simple attention
         self.attention = Dense(1)
         
     def call(self, inputs):
         attn_scores = self.attention(inputs)
+        # Softmax
         attn_weights = tf.nn.softmax(attn_scores, axis=1)
         return tf.reduce_sum(inputs * attn_weights, axis=1)
     
 
 # Single expert
 class Expert(Layer):
-    def __init__(self, units1, units2, **kwargs):
+    def __init__(self, dim_1, dim_2, **kwargs):
         super(Expert, self).__init__(**kwargs)
-        self.units1 = units1
-        self.units2 = units2
-        self.dense1 = None
-        self.dense2 = None
+        self.dim_1 = dim_1
+        self.dim_2 = dim_2
+        self.dense_1 = None
+        self.dense_2 = None
 
     def build(self, input_shape):
-        self.dense1 = Dense(self.units1, activation='gelu')
-        self.dense2 = Dense(self.units2, activation='gelu')
+        # 2 layer MLP
+        self.dense_1 = Dense(self.dim_1, activation='gelu', kernel_regularizer=l2(REG_FACTOR))
+        self.dense_2 = Dense(self.dim_2, activation='gelu', kernel_regularizer=l2(REG_FACTOR))
     
     def call(self, inputs):
-        x = self.dense1(inputs)
-        return self.dense2(x)
+        x = self.dense_1(inputs)
+        return self.dense_2(x)
     
 
 # Mixture of experts top k layer, attention pooling
 class MoETopKLayer(Layer):
-    def __init__(self, num_experts, expert_units_1, expert_units_2, top_k, **kwargs):
+    def __init__(self, num_experts, dim_1, dim_2, top_k, **kwargs):
         super(MoETopKLayer, self).__init__(**kwargs)
         self.num_experts = num_experts
-        self.expert_units_1 = expert_units_1
-        self.expert_units_2 = expert_units_2
+        self.dim_1 = dim_1
+        self.dim_2 = dim_2
         self.top_k = top_k
 
         self.experts = None
@@ -86,7 +91,7 @@ class MoETopKLayer(Layer):
         self.gating_network = None
 
     def build(self, input_shape):
-        self.experts = [Expert(self.expert_units_1, self.expert_units_2) for _ in range(self.num_experts)]
+        self.experts = [Expert(self.dim_1, self.dim_2) for _ in range(self.num_experts)]
         self.attention_pooling = AttentionPooling()
         self.gating_network = Dense(self.num_experts, activation='softmax')
 
@@ -141,11 +146,11 @@ def get_transformer_model(shape: tuple, meta_dim: int, label: str):
     """
     # Transformer block with LSTM position encoding and MoE
     def transformer_block(x, num_heads, key_dim, ff_dim_1, ff_dim_2):
-        x = Add()([x, LSTM(units=x.shape[2], return_sequences=True)(x)])
-        attn_layer = MultiHeadAttention(num_heads=num_heads, key_dim=key_dim, dropout=0.2)(x, x)
+        x = Add()([x, LSTM(units=x.shape[2], return_sequences=True, kernel_regularizer=l2(REG_FACTOR))(x)])
+        attn_layer = MultiHeadAttention(num_heads=num_heads, key_dim=key_dim, dropout=DROPOUT_FACTOR, kernel_regularizer=l2(REG_FACTOR))(x, x)
         x = Add()([x, attn_layer])
         x = LayerNormalization(epsilon=1e-8)(x)
-        moe = MoETopKLayer(num_experts=5, expert_units_1=ff_dim_1, expert_units_2=ff_dim_2, top_k=2)(x)
+        moe = MoETopKLayer(num_experts=5, dim_1=ff_dim_1, dim_2=ff_dim_2, top_k=2)(x)
         x = Add()([x, moe])
         x = LayerNormalization(epsilon=1e-8)(x)
         return x

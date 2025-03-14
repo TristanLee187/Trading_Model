@@ -6,7 +6,7 @@ from common import *
 import keras
 from keras.api.models import load_model
 from keras.api.utils import custom_object_scope
-from models import CUSTOM_OBJECTS
+from model import CUSTOM_OBJECTS
 from datetime import date, timedelta
 import matplotlib.pyplot as plt
 import argparse

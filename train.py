@@ -3,7 +3,7 @@
 import numpy as np
 import pandas as pd
 from common import *
-from models import custom_categorical_crossentropy, get_transformer_model, CUSTOM_OBJECTS
+from model import custom_categorical_crossentropy, get_transformer_model, CUSTOM_OBJECTS
 from sklearn.model_selection import train_test_split
 import tensorflow as tf
 from keras.api.models import load_model
@@ -74,7 +74,7 @@ if __name__ == '__main__':
     parser.add_argument('-r', '--resume', type=str,
                         help='if set, path to a model to resume training on (only works for NNs)')
     parser.add_argument('-b', '--batch_size', type=int,
-                        help='batch size (defaults to 32)')
+                        help='batch size (defaults to 64)')
     parser.add_argument('-s', '--learning_rate', type=float,
                         help='learning rate (defaults to 0.001)')
     parser.add_argument('-p', '--epochs', type=int,
@@ -113,7 +113,7 @@ if __name__ == '__main__':
     # Train!
     lr_scheduler = ReduceLROnPlateau(monitor='loss', factor=0.5, patience=5, min_lr = 1e-7)
     model.fit([X_train, x_meta_train], y_train, epochs=(args.epochs if args.epochs is not None else 20), 
-                batch_size=(args.batch_size if args.batch_size is not None else 32),
+                batch_size=(args.batch_size if args.batch_size is not None else 64),
                 validation_data=([X_val, x_meta_val], y_val), 
                 callbacks=[lr_scheduler])
     
