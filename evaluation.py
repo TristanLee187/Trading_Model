@@ -3,7 +3,6 @@
 import numpy as np
 import pandas as pd
 from common import *
-from build_data_set import build_daily_dataset
 import keras
 from keras.api.models import load_model
 from keras.api.utils import custom_object_scope
@@ -16,7 +15,10 @@ import argparse
 keras.config.enable_unsafe_deserialization()
 
 
-# TODO: fix this to read eval data directly from disk
+# TODO: edit whole file to not use start_date and end_date as arguments
+# (just reads from disk)
+
+
 def build_eval_data(ticker: str, start_date: date, end_date: date = None):
     """
     Prepare data needed for evaluation.
@@ -29,7 +31,8 @@ def build_eval_data(ticker: str, start_date: date, end_date: date = None):
     Returns:
         pandas.DataFrame, pandas.Series: Market data, and a time column to use for plotting.
     """
-    data = build_daily_dataset(ticker, start_date, end_date)
+    data = pd.read_csv('daily_market_data/all_tickers_eval.csv')
+    data = data[data['Ticker'] == ticker]
     time_col = pd.to_datetime(data[['Year', 'Month', 'Day']]).dt.date
 
     return data, time_col
