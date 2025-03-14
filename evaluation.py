@@ -15,10 +15,6 @@ import argparse
 keras.config.enable_unsafe_deserialization()
 
 
-# TODO: edit whole file to not use start_date and end_date as arguments
-# (just reads from disk)
-
-
 def build_eval_data(ticker: str):
     """
     Prepare data needed for evaluation by reading from disk.
