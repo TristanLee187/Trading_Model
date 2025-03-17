@@ -29,10 +29,10 @@ VERSION = 'v9'
 WINDOW_LENGTH = 30
 
 # Number of time points to use for defining buy/sell labels (for constrained linear regression).
-FUTURE_WINDOW_LENGTH = 30
+FUTURE_WINDOW_LENGTH = 15
 
 # Proportional change to use when classifying buy/sell labels.
-percent_change_slope = 0.1
+percent_change_slope = 0.05
 
 
 def buy_sell_label(data: pd.DataFrame, index: int, col: str, mi: float, scale: float):

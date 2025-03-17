@@ -4,14 +4,14 @@ from common import *
 import tensorflow as tf
 from keras import Model
 from keras.api.layers import (
-    LSTM, Dense, Input, MultiHeadAttention,
+    Conv1D, Dense, Input, MultiHeadAttention,
     Add, LayerNormalization, Layer, Concatenate
 )
 from keras.api.regularizers import l2
 
 
-REG_FACTOR = 1e-4
-DROPOUT_FACTOR = 0.1
+REG_FACTOR = 1e-3
+DROPOUT_FACTOR = 0.2
 
 
 def custom_categorical_crossentropy(y_true, y_pred):
@@ -69,8 +69,10 @@ class Expert(Layer):
 
     def build(self, input_shape):
         # 2 layer MLP
-        self.dense_1 = Dense(self.dim_1, activation='gelu', kernel_regularizer=l2(REG_FACTOR))
-        self.dense_2 = Dense(self.dim_2, activation='gelu', kernel_regularizer=l2(REG_FACTOR))
+        self.dense_1 = Dense(self.dim_1, activation='gelu', 
+                kernel_regularizer=l2(REG_FACTOR), bias_regularizer=l2(REG_FACTOR))
+        self.dense_2 = Dense(self.dim_2, activation='gelu', 
+                kernel_regularizer=l2(REG_FACTOR), bias_regularizer=l2(REG_FACTOR))
     
     def call(self, inputs):
         x = self.dense_1(inputs)
@@ -134,7 +136,7 @@ def last_layer(label: str):
 
 def get_transformer_model(shape: tuple, meta_dim: int, label: str):
     """
-    Define a transformer, LSTM, and MoE based architecture.
+    Define a transformer (with learnable positional encoding) and MoE based architecture.
 
     Args:
         shape (tuple[int, int]): shape of each input sequence.
@@ -142,14 +144,20 @@ def get_transformer_model(shape: tuple, meta_dim: int, label: str):
         label (str):  The label type to train on.
 
     Returns:
-        keras.Model: Model with a transformer-LSTM-MoE architecture.
+        keras.Model: Model with a transformer-MoE architecture.
     """
-    # Transformer block with LSTM position encoding and MoE
+    # Transformer block with learnable position encoding and MoE
     def transformer_block(x, num_heads, key_dim, ff_dim_1, ff_dim_2):
-        x = Add()([x, LSTM(units=x.shape[2], return_sequences=True, kernel_regularizer=l2(REG_FACTOR))(x)])
-        attn_layer = MultiHeadAttention(num_heads=num_heads, key_dim=key_dim, dropout=DROPOUT_FACTOR, kernel_regularizer=l2(REG_FACTOR))(x, x)
+        # Positional encoding
+        # x = Add()([x, LSTM(units=x.shape[2], return_sequences=True, kernel_regularizer=l2(REG_FACTOR))(x)])
+        x = Add()([x, Conv1D(filters=x.shape[1], kernel_size=5, data_format='channels_first', padding='same', activation='gelu', bias_regularizer=l2(REG_FACTOR))(x)])
+        
+        # Attention!
+        attn_layer = MultiHeadAttention(num_heads=num_heads, key_dim=key_dim, dropout=DROPOUT_FACTOR, kernel_regularizer=l2(REG_FACTOR), bias_regularizer=l2(REG_FACTOR))(x, x)
         x = Add()([x, attn_layer])
         x = LayerNormalization(epsilon=1e-8)(x)
+        
+        # MoE
         moe = MoETopKLayer(num_experts=5, dim_1=ff_dim_1, dim_2=ff_dim_2, top_k=2)(x)
         x = Add()([x, moe])
         x = LayerNormalization(epsilon=1e-8)(x)
@@ -162,16 +170,22 @@ def get_transformer_model(shape: tuple, meta_dim: int, label: str):
                                   ff_dim_1=ff_dim_1, ff_dim_2=ff_dim_2)
         return x
 
-    # Define the Transformer model
+    # Define the inputs
     seq_input_layer = Input(shape=shape)
     meta_input_layer = Input(shape=meta_dim)
 
-    # Transformers!
-    transformer_blocks = transformer_stack(seq_input_layer, num_heads=4, key_dim=8, 
-        ff_dim_1=shape[1], ff_dim_2=shape[1], num_blocks=4)
+    # Encoder
+    encoder = transformer_stack(seq_input_layer, num_heads=4, key_dim=8, 
+            ff_dim_1=shape[1], ff_dim_2=shape[1], num_blocks=2)
+    encoder = Dense(4, activation='gelu')(encoder)
+
+    # Decoder
+    decoder = Dense(shape[1], activation='gelu')(encoder)
+    decoder = transformer_stack(decoder, num_heads=4, key_dim=8,
+            ff_dim_1=shape[1], ff_dim_2=shape[1], num_blocks=2)
     
     # Simple Attention pooling
-    pooling_layer = AttentionPooling()(transformer_blocks)
+    pooling_layer = AttentionPooling()(decoder)
 
     # Output
     flat_layer = Concatenate()([pooling_layer, meta_input_layer])
