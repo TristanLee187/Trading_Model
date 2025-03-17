@@ -11,7 +11,7 @@ from keras.api.regularizers import l2
 
 
 REG_FACTOR = 1e-3
-DROPOUT_FACTOR = 0.2
+DROPOUT_FACTOR = 0.1
 
 
 def custom_categorical_crossentropy(y_true, y_pred):

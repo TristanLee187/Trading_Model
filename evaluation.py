@@ -57,7 +57,7 @@ def reg_model_eval(model_path: str, model_arch: str, ticker: str, label: str, er
     start_date, end_date = time_col.iloc[0], time_col.iloc[-1]
 
     # Prepare test data and scalers to plot the real values
-    X, x_meta, y_gt, scaler_mins, scaler_scales = prepare_model_data(data, label, 'Close')
+    X, x_meta, y_gt, scaler_mins, scaler_scales = prepare_model_data(data, label, 'Close', False)
 
     # Predict
     if model_arch == 'transformer':
@@ -176,7 +176,7 @@ def all_tickers_class_model_eval(model_path: str, model_arch: str):
         start_date, end_date = time_col.iloc[0], time_col.iloc[-1]
 
         # Prepare test data
-        X, x_meta, y_gt, scaler_mins, scaler_scales = prepare_model_data(data, 'signal', 'Close')
+        X, x_meta, y_gt, scaler_mins, scaler_scales = prepare_model_data(data, 'signal', 'Close', False)
 
         # Predict
         y_predictions = model.predict([X, x_meta])
@@ -203,7 +203,7 @@ def all_tickers_class_model_eval(model_path: str, model_arch: str):
 
     # Record the total profit and return
     total_profit = total_revenue - total_cost
-    profit_string = f'{sign_blank_or_negative(total_profit)}${round(total_profit, 2)} total profit from ${round(total_cost, 2)} total cost'
+    profit_string = f'{sign_blank_or_negative(total_profit)}${abs(round(total_profit, 2))} total profit from ${round(total_cost, 2)} total cost'
     return_string = f'Total return for all tickers: {round(100*total_profit/total_cost, 2)}%'
     print(profit_string)
     print(return_string)
@@ -240,7 +240,7 @@ def ticker_class_model_eval(model_path: str, model_arch: str, ticker: str):
     start_date, end_date = time_col.iloc[0], time_col.iloc[-1]
 
     # Prepare test data and scalers to plot the real values
-    X, x_meta, y_gt, scaler_mins, scaler_scales = prepare_model_data(data, 'signal', 'Close')
+    X, x_meta, y_gt, scaler_mins, scaler_scales = prepare_model_data(data, 'signal', 'Close', False)
 
     # Predict
     if model_arch == 'transformer':

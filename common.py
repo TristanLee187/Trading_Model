@@ -34,6 +34,9 @@ FUTURE_WINDOW_LENGTH = 15
 # Proportional change to use when classifying buy/sell labels.
 percent_change_slope = 0.05
 
+# Stride to take when generating training instances.
+train_stride = 5
+
 
 def buy_sell_label(data: pd.DataFrame, index: int, col: str, mi: float, scale: float):
     """
@@ -95,11 +98,10 @@ keep_cols = ['Proportional_Change', 'Stochastic_Oscillator', 'RSI', 'Volume',
              'sector_avg_prop_change']
 
 
-def prepare_model_data(data: pd.DataFrame, label: str, col: str):
+def prepare_model_data(data: pd.DataFrame, label: str, col: str, is_train: bool):
     """
     Prepare input instances and ground truth labels (X and y) given raw CSV data, using the defined
-        WINDOW_LENGTH as the sequence length, and normalizing each sequence using the min and max values
-        in the given column.
+        WINDOW_LENGTH as the sequence length, and using certain normalization methods.
 
     Args:
         data (pandas.DataFrame): Pandas DataFrame containing the raw CSV data (for a specific ticker).
@@ -107,11 +109,12 @@ def prepare_model_data(data: pd.DataFrame, label: str, col: str):
             "price": Use the price of the given column.
             "signal": Use regression to indicate upward/downward/neither movement.
         col (str): Column name to base creating the labels off of.
+        is_train (bool): Boolean for if the prepared data is training or eval data.
+            If true, takes a certain step size (stride) in the sliding window.
 
     Returns:
-        numpy.array, numpy.array: Two numpy arrays X and y containing the training instances and ground
+        numpy.array, numpy.array: Two numpy arrays X and y containing the input instances and ground
             truth labels, respectively.
-            Each training instance of X is normalized locally using its own min/max col value.
     """
     wl, fwl = WINDOW_LENGTH, FUTURE_WINDOW_LENGTH
     # Drop ignored columns
@@ -137,8 +140,14 @@ def prepare_model_data(data: pd.DataFrame, label: str, col: str):
     # Rolling mins/maxes for normalization
     mins = local_data[col].rolling(wl).min()
     maxes = local_data[col].rolling(wl).max()
+    
+    # Stride
+    if is_train:
+        stride = train_stride
+    else:
+        stride = 1
 
-    for i in range(len(data) - wl - right_offset):
+    for i in range(0, len(data) - wl - right_offset, stride):
         sequence = local_data.iloc[i:i+wl]
 
         mi = mins.iloc[i+wl-1]

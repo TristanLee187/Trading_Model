@@ -46,7 +46,7 @@ def prepare_training_data(label: str):
         data = tickers_df_grouped.get_group((ticker,))
 
         # Just use the ticker's whole file data as a contiguous training set
-        ticker_X, ticker_x_meta, ticker_y, mins, scales = prepare_model_data(data, label, 'Close')
+        ticker_X, ticker_x_meta, ticker_y, mins, scales = prepare_model_data(data, label, 'Close', True)
 
         X.append(ticker_X)
         x_meta.append(ticker_x_meta)
@@ -90,7 +90,7 @@ class NoiseAugmentator(Sequence):
         noise = np.random.normal(0, self.noise_std, X_batch.shape)
         X_batch += noise
 
-        return X_batch, X_meta_batch, y_batch
+        return (X_batch, X_meta_batch), y_batch
     
     def on_epoch_end(self):
         # Shuffle!
@@ -125,7 +125,7 @@ if __name__ == '__main__':
         X, x_meta, y = npzfile['X'], npzfile['x_meta'], npzfile['y']
     else:
         X, x_meta, y = prepare_training_data(args.label)
-        np.savez(f'./models/{VERSION}/{args.label}_X_x_meta_and_y.npz', X=X, x_meta=x_meta, y=y)
+        np.savez(f'./models/{VERSION}/{args.label}_{train_stride}_stride_X_x_meta_and_y.npz', X=X, x_meta=x_meta, y=y)
 
     # Prepare validation data
     X_train, X_val, x_meta_train, x_meta_val, y_train, y_val = train_test_split(
@@ -155,7 +155,7 @@ if __name__ == '__main__':
     train_data_generator = NoiseAugmentator(X_train, x_meta_train, y_train, 
                                             batch_size=(args.batch_size if args.batch_size is not None else 64),
                                             aug_factor=10,
-                                            noise_std=0.1)
+                                            noise_std=0.01)
     model.fit(train_data_generator,
               epochs=(args.epochs if args.epochs is not None else 20), 
               validation_data=([X_val, x_meta_val], y_val), 
