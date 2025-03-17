@@ -128,7 +128,8 @@ if __name__ == '__main__':
         np.savez(f'./models/{VERSION}/{args.label}_X_x_meta_and_y.npz', X=X, x_meta=x_meta, y=y)
 
     # Prepare validation data
-    X_train, X_val, x_meta_train, x_meta_val, y_train, y_val = train_test_split(X, x_meta, y, test_size=0.2, random_state=SEED)
+    X_train, X_val, x_meta_train, x_meta_val, y_train, y_val = train_test_split(
+        X, x_meta, y, test_size=0.2, random_state=SEED)
     
     # Get appropriate NN model
     if args.resume is not None:

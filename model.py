@@ -70,9 +70,9 @@ class Expert(Layer):
     def build(self, input_shape):
         # 2 layer MLP
         self.dense_1 = Dense(self.dim_1, activation='gelu', 
-                kernel_regularizer=l2(REG_FACTOR), bias_regularizer=l2(REG_FACTOR))
+                             kernel_regularizer=l2(REG_FACTOR), bias_regularizer=l2(REG_FACTOR))
         self.dense_2 = Dense(self.dim_2, activation='gelu', 
-                kernel_regularizer=l2(REG_FACTOR), bias_regularizer=l2(REG_FACTOR))
+                             kernel_regularizer=l2(REG_FACTOR), bias_regularizer=l2(REG_FACTOR))
     
     def call(self, inputs):
         x = self.dense_1(inputs)
@@ -154,7 +154,8 @@ def get_transformer_model(shape: tuple, meta_dim: int, label: str):
         #                      padding='same', activation='gelu', bias_regularizer=l2(REG_FACTOR))(x)])
         
         # Attention!
-        attn_layer = MultiHeadAttention(num_heads=num_heads, key_dim=key_dim, dropout=DROPOUT_FACTOR, kernel_regularizer=l2(REG_FACTOR), bias_regularizer=l2(REG_FACTOR))(x, x)
+        attn_layer = MultiHeadAttention(num_heads=num_heads, key_dim=key_dim, dropout=DROPOUT_FACTOR, 
+                                        kernel_regularizer=l2(REG_FACTOR), bias_regularizer=l2(REG_FACTOR))(x, x)
         x = Add()([x, attn_layer])
         x = LayerNormalization(epsilon=1e-8)(x)
         
@@ -177,13 +178,13 @@ def get_transformer_model(shape: tuple, meta_dim: int, label: str):
 
     # Encoder
     encoder = transformer_stack(seq_input_layer, num_heads=4, key_dim=8, 
-            ff_dim_1=shape[1], ff_dim_2=shape[1], num_blocks=2)
+                                ff_dim_1=shape[1], ff_dim_2=shape[1], num_blocks=2)
     encoder = Dense(4, activation='gelu')(encoder)
 
     # Decoder
     decoder = Dense(shape[1], activation='gelu')(encoder)
     decoder = transformer_stack(decoder, num_heads=4, key_dim=8,
-            ff_dim_1=shape[1], ff_dim_2=shape[1], num_blocks=2)
+                                ff_dim_1=shape[1], ff_dim_2=shape[1], num_blocks=2)
     
     # Simple Attention pooling
     pooling_layer = AttentionPooling()(decoder)
