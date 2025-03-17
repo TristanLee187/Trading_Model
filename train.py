@@ -11,10 +11,12 @@ from keras.api.optimizers import RMSprop
 from keras.api.utils import custom_object_scope
 from keras.api.callbacks import ReduceLROnPlateau
 from keras.api.metrics import F1Score
+from keras.api.utils import Sequence
 import argparse
 
 
 SEED = 42
+np.random.seed(SEED)
 tf.keras.config.enable_unsafe_deserialization()
 
 
@@ -57,6 +59,42 @@ def prepare_training_data(label: str):
     y = np.concatenate(y)
 
     return X, x_meta, y
+
+
+# Augment data with noise
+class NoiseAugmentator(Sequence):
+    def __init__(self, X, X_meta, y, batch_size, aug_factor, noise_std, **kwargs):
+        super(NoiseAugmentator, self).__init__(**kwargs)
+        self.X = X
+        self.X_meta = X_meta
+        self.y = y
+        self.batch_size = batch_size
+        self.aug_factor = aug_factor
+        self.noise_std = noise_std
+        # Number of new samples
+        self.total_samples = len(X) * aug_factor
+        self.indices = np.repeat(np.arange(len(X)), aug_factor)
+        np.random.shuffle(self.indices)
+
+    def __len__(self):
+        # Batches per epoch
+        return int(np.ceil(self.total_samples / self.batch_size))
+    
+    def __getitem__(self, index):
+        # One batch of data
+        batch_indices = self.indices[index*self.batch_size : (index+1)*self.batch_size]
+        X_batch = self.X[batch_indices].copy()
+        X_meta_batch = self.X_meta[batch_indices].copy()
+        y_batch = self.y[batch_indices].copy()
+        # Noise!
+        noise = np.random.normal(0, self.noise_std, X_batch.shape)
+        X_batch += noise
+
+        return X_batch, X_meta_batch, y_batch
+    
+    def on_epoch_end(self):
+        # Shuffle!
+        np.random.shuffle(self.indices)
 
 
 if __name__ == '__main__':
@@ -112,10 +150,15 @@ if __name__ == '__main__':
     
     # Train!
     lr_scheduler = ReduceLROnPlateau(monitor='loss', factor=0.5, patience=5, min_lr = 1e-7)
-    model.fit([X_train, x_meta_train], y_train, epochs=(args.epochs if args.epochs is not None else 20), 
-                batch_size=(args.batch_size if args.batch_size is not None else 64),
-                validation_data=([X_val, x_meta_val], y_val), 
-                callbacks=[lr_scheduler])
+    # Noise augmentation
+    train_data_generator = NoiseAugmentator(X_train, x_meta_train, y_train, 
+                                            batch_size=(args.batch_size if args.batch_size is not None else 64),
+                                            aug_factor=10,
+                                            noise_std=0.1)
+    model.fit(train_data_generator,
+              epochs=(args.epochs if args.epochs is not None else 20), 
+              validation_data=([X_val, x_meta_val], y_val), 
+              callbacks=[lr_scheduler])
     
     # Save the model
     if args.label == 'price':

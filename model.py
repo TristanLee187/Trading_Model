@@ -4,7 +4,7 @@ from common import *
 import tensorflow as tf
 from keras import Model
 from keras.api.layers import (
-    Conv1D, Dense, Input, MultiHeadAttention,
+    LSTM, Conv1D, Dense, Input, MultiHeadAttention,
     Add, LayerNormalization, Layer, Concatenate
 )
 from keras.api.regularizers import l2
@@ -149,8 +149,9 @@ def get_transformer_model(shape: tuple, meta_dim: int, label: str):
     # Transformer block with learnable position encoding and MoE
     def transformer_block(x, num_heads, key_dim, ff_dim_1, ff_dim_2):
         # Positional encoding
-        # x = Add()([x, LSTM(units=x.shape[2], return_sequences=True, kernel_regularizer=l2(REG_FACTOR))(x)])
-        x = Add()([x, Conv1D(filters=x.shape[1], kernel_size=5, data_format='channels_first', padding='same', activation='gelu', bias_regularizer=l2(REG_FACTOR))(x)])
+        x = Add()([x, LSTM(units=x.shape[2], return_sequences=True, kernel_regularizer=l2(REG_FACTOR))(x)])
+        # x = Add()([x, Conv1D(filters=x.shape[1], kernel_size=5, data_format='channels_first', 
+        #                      padding='same', activation='gelu', bias_regularizer=l2(REG_FACTOR))(x)])
         
         # Attention!
         attn_layer = MultiHeadAttention(num_heads=num_heads, key_dim=key_dim, dropout=DROPOUT_FACTOR, kernel_regularizer=l2(REG_FACTOR), bias_regularizer=l2(REG_FACTOR))(x, x)
