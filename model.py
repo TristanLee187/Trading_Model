@@ -11,12 +11,12 @@ from keras.api.regularizers import l2
 
 
 REG_FACTOR = 1e-3
-DROPOUT_FACTOR = 0.1
+DROPOUT_FACTOR = 0.2
 
 
 def custom_categorical_crossentropy(y_true, y_pred):
     """
-    Customer categorical-crossentropy loss function on 3 classes that uses weights to
+    Custom categorical-crossentropy loss function on 3 classes that uses weights to
     penalize different classificiations differently.
 
     Args:
@@ -149,9 +149,8 @@ def get_transformer_model(shape: tuple, meta_dim: int, label: str):
     # Transformer block with learnable position encoding and MoE
     def transformer_block(x, num_heads, key_dim, ff_dim_1, ff_dim_2):
         # Positional encoding
-        x = Add()([x, LSTM(units=x.shape[2], return_sequences=True, kernel_regularizer=l2(REG_FACTOR))(x)])
-        # x = Add()([x, Conv1D(filters=x.shape[1], kernel_size=5, data_format='channels_first', 
-        #                      padding='same', activation='gelu', bias_regularizer=l2(REG_FACTOR))(x)])
+        position_encoder = LSTM(units=x.shape[2], return_sequences=True, kernel_regularizer=l2(REG_FACTOR), recurrent_regularizer=l2(REG_FACTOR), bias_regularizer=l2(REG_FACTOR))(x)
+        x = Add()([x, position_encoder])
         
         # Attention!
         attn_layer = MultiHeadAttention(num_heads=num_heads, key_dim=key_dim, dropout=DROPOUT_FACTOR, 
@@ -176,23 +175,18 @@ def get_transformer_model(shape: tuple, meta_dim: int, label: str):
     seq_input_layer = Input(shape=shape)
     meta_input_layer = Input(shape=meta_dim)
 
-    # Encoder
-    encoder = transformer_stack(seq_input_layer, num_heads=4, key_dim=8, 
-                                ff_dim_1=shape[1], ff_dim_2=shape[1], num_blocks=2)
-    encoder = Dense(4, activation='gelu')(encoder)
-
-    # Decoder
-    decoder = Dense(shape[1], activation='gelu')(encoder)
-    decoder = transformer_stack(decoder, num_heads=4, key_dim=8,
-                                ff_dim_1=shape[1], ff_dim_2=shape[1], num_blocks=2)
+    # Transformer blocks
+    stack = transformer_stack(seq_input_layer, num_heads=2, key_dim=8,
+                              ff_dim_1=shape[1], ff_dim_2=shape[1], num_blocks=4)
+ 
+    # LSTM aggregation
+    pooling_layer = LSTM(units=shape[1], kernel_regularizer=l2(REG_FACTOR), recurrent_regularizer=l2(REG_FACTOR), bias_regularizer=l2(REG_FACTOR))(stack)
     
-    # Simple Attention pooling
-    pooling_layer = AttentionPooling()(decoder)
-
     # Output
     flat_layer = Concatenate()([pooling_layer, meta_input_layer])
-    dense_layer_1 = Dense(units=128, activation='gelu')(flat_layer)
-    dense_layer_2 = Dense(units=64, activation='gelu')(dense_layer_1)
+    dense_layer_1 = Dense(units=64, activation='gelu', kernel_regularizer=l2(REG_FACTOR), bias_regularizer=l2(REG_FACTOR))(flat_layer)
+    dense_layer_2 = Dense(units=32, activation='gelu', kernel_regularizer=l2(REG_FACTOR), bias_regularizer=l2(REG_FACTOR))(dense_layer_1)
+    dense_layer_3 = Dense(units=32, activation='gelu', kernel_regularizer=l2(REG_FACTOR), bias_regularizer=l2(REG_FACTOR))(dense_layer_2)
     output_layer = last_layer(label)(dense_layer_2)
     model = Model(inputs=[seq_input_layer, meta_input_layer], outputs=output_layer)
 

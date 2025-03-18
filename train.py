@@ -63,16 +63,19 @@ def prepare_training_data(label: str):
 
 # Augment data with noise
 class NoiseAugmentator(Sequence):
-    def __init__(self, X, X_meta, y, batch_size, aug_factor, noise_std, **kwargs):
+    def __init__(self, X, X_meta, y, batch_size, aug_factor, std_scaler,  **kwargs):
         super(NoiseAugmentator, self).__init__(**kwargs)
         self.X = X
         self.X_meta = X_meta
         self.y = y
         self.batch_size = batch_size
         self.aug_factor = aug_factor
-        self.noise_std = noise_std
+        self.std_scaler = std_scaler
+        # Compute standard deviations of each feature
+        self.noise_stds = X.reshape(-1, X.shape[2]).std(axis=0)
         # Number of new samples
         self.total_samples = len(X) * aug_factor
+        # Random indices
         self.indices = np.repeat(np.arange(len(X)), aug_factor)
         np.random.shuffle(self.indices)
 
@@ -87,7 +90,8 @@ class NoiseAugmentator(Sequence):
         X_meta_batch = self.X_meta[batch_indices].copy()
         y_batch = self.y[batch_indices].copy()
         # Noise!
-        noise = np.random.normal(0, self.noise_std, X_batch.shape)
+        # Scale down standard deviations to retain information
+        noise = np.random.normal(0, self.noise_stds/self.std_scaler, X_batch.shape)
         X_batch += noise
 
         return (X_batch, X_meta_batch), y_batch
@@ -134,18 +138,18 @@ if __name__ == '__main__':
     # Get appropriate NN model
     if args.resume is not None:
         with custom_object_scope(CUSTOM_OBJECTS):
-            model = load_model(args.resume, compile=False)
+            model = load_model(args.resume, compile=True)
     else:
         model = get_transformer_model(X[0].shape, x_meta[0].shape, args.label)
 
-    # Compile
-    if args.label == 'price':
-        model.compile(optimizer='adam', loss=args.error)
-    elif args.label == 'signal':
-        model.compile(
-            optimizer=RMSprop(learning_rate=(args.learning_rate if args.learning_rate is not None else 0.001)),
-            loss=custom_categorical_crossentropy, 
-            metrics=[F1Score()])
+        # Compile
+        if args.label == 'price':
+            model.compile(optimizer='adam', loss=args.error)
+        elif args.label == 'signal':
+            model.compile(
+                optimizer=RMSprop(learning_rate=(args.learning_rate if args.learning_rate is not None else 0.001)),
+                loss=custom_categorical_crossentropy, 
+                metrics=[F1Score()])
     
     model.summary()
     
@@ -155,7 +159,7 @@ if __name__ == '__main__':
     train_data_generator = NoiseAugmentator(X_train, x_meta_train, y_train, 
                                             batch_size=(args.batch_size if args.batch_size is not None else 64),
                                             aug_factor=10,
-                                            noise_std=0.01)
+                                            std_scaler=10)
     model.fit(train_data_generator,
               epochs=(args.epochs if args.epochs is not None else 20), 
               validation_data=([X_val, x_meta_val], y_val), 
