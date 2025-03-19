@@ -187,7 +187,7 @@ def get_transformer_model(shape: tuple, meta_dim: int, label: str):
     dense_layer_1 = Dense(units=64, activation='gelu', kernel_regularizer=l2(REG_FACTOR), bias_regularizer=l2(REG_FACTOR))(flat_layer)
     dense_layer_2 = Dense(units=32, activation='gelu', kernel_regularizer=l2(REG_FACTOR), bias_regularizer=l2(REG_FACTOR))(dense_layer_1)
     dense_layer_3 = Dense(units=32, activation='gelu', kernel_regularizer=l2(REG_FACTOR), bias_regularizer=l2(REG_FACTOR))(dense_layer_2)
-    output_layer = last_layer(label)(dense_layer_2)
+    output_layer = last_layer(label)(dense_layer_3)
     model = Model(inputs=[seq_input_layer, meta_input_layer], outputs=output_layer)
 
     return model
