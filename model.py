@@ -4,8 +4,8 @@ from common import *
 import tensorflow as tf
 from keras import Model
 from keras.api.layers import (
-    LSTM, Conv1D, Dense, Input, MultiHeadAttention,
-    Add, LayerNormalization, Layer, Concatenate
+    LSTM, Dense, Input, MultiHeadAttention,
+    Add, LayerNormalization, Layer, Concatenate, Permute
 )
 from keras.api.regularizers import l2
 
@@ -149,7 +149,8 @@ def get_transformer_model(shape: tuple, meta_dim: int, label: str):
     # Transformer block with learnable position encoding and MoE
     def transformer_block(x, num_heads, key_dim, ff_dim_1, ff_dim_2):
         # Positional encoding
-        position_encoder = LSTM(units=x.shape[2], return_sequences=True, kernel_regularizer=l2(REG_FACTOR), recurrent_regularizer=l2(REG_FACTOR), bias_regularizer=l2(REG_FACTOR))(x)
+        position_encoder = LSTM(units=x.shape[2], return_sequences=True, 
+                                kernel_regularizer=l2(REG_FACTOR), recurrent_regularizer=l2(REG_FACTOR), bias_regularizer=l2(REG_FACTOR))(x)
         x = Add()([x, position_encoder])
         
         # Attention!
@@ -176,10 +177,16 @@ def get_transformer_model(shape: tuple, meta_dim: int, label: str):
     meta_input_layer = Input(shape=meta_dim)
 
     # Transformer blocks
-    stack = transformer_stack(seq_input_layer, num_heads=2, key_dim=8,
+    temporal_stack = transformer_stack(seq_input_layer, num_heads=2, key_dim=8,
                               ff_dim_1=shape[1], ff_dim_2=shape[1], num_blocks=4)
+    feature_input_layer = Permute((2, 1))(seq_input_layer)
+    feature_stack = transformer_stack(feature_input_layer, num_heads=2, key_dim=8,
+                              ff_dim_1=shape[0], ff_dim_2=shape[0], num_blocks=4)
+    # Transpose back
+    feature_stack = Permute((2, 1))(feature_stack)
+    stack = Add()([temporal_stack, feature_stack])
  
-    # LSTM aggregation
+    # Aggregation
     pooling_layer = LSTM(units=shape[1], kernel_regularizer=l2(REG_FACTOR), recurrent_regularizer=l2(REG_FACTOR), bias_regularizer=l2(REG_FACTOR))(stack)
     
     # Output
