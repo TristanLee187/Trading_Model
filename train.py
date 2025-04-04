@@ -91,7 +91,7 @@ class NoiseAugmentator(Sequence):
         y_batch = self.y[batch_indices].copy()
         # Noise!
         # Scale down standard deviations to retain information
-        noise = np.random.normal(0, self.noise_stds/self.std_scaler, X_batch.shape)
+        noise = np.random.normal(0, self.noise_stds * self.std_scaler, X_batch.shape)
         X_batch += noise
 
         return (X_batch, X_meta_batch), y_batch
@@ -159,7 +159,7 @@ if __name__ == '__main__':
     train_data_generator = NoiseAugmentator(X_train, x_meta_train, y_train, 
                                             batch_size=(args.batch_size if args.batch_size is not None else 64),
                                             aug_factor=10,
-                                            std_scaler=10)
+                                            std_scaler=0.5)
     model.fit(train_data_generator,
               epochs=(args.epochs if args.epochs is not None else 20), 
               validation_data=([X_val, x_meta_val], y_val), 

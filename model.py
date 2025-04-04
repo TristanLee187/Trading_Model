@@ -10,7 +10,7 @@ from keras.api.layers import (
 from keras.api.regularizers import l2
 
 
-REG_FACTOR = 1e-3
+REG_FACTOR = 1e-2
 DROPOUT_FACTOR = 0.2
 
 
