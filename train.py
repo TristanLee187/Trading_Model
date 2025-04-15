@@ -7,7 +7,7 @@ from model import custom_categorical_crossentropy, get_transformer_model, CUSTOM
 from sklearn.model_selection import train_test_split
 import tensorflow as tf
 from keras.api.models import load_model
-from keras.api.optimizers import RMSprop
+from keras.api.optimizers import RMSprop, Adam
 from keras.api.utils import custom_object_scope
 from keras.api.callbacks import ReduceLROnPlateau
 from keras.api.metrics import F1Score
@@ -147,7 +147,7 @@ if __name__ == '__main__':
             model.compile(optimizer='adam', loss=args.error)
         elif args.label == 'signal':
             model.compile(
-                optimizer=RMSprop(learning_rate=(args.learning_rate if args.learning_rate is not None else 0.001)),
+                optimizer=Adam(learning_rate=(args.learning_rate if args.learning_rate is not None else 0.001)),
                 loss=custom_categorical_crossentropy, 
                 metrics=[F1Score()])
     
