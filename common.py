@@ -35,7 +35,7 @@ FUTURE_WINDOW_LENGTH = 15
 percent_change_slope = 0.05
 
 # Stride to take when generating training instances.
-train_stride = 5
+train_stride = 15
 
 
 def buy_sell_label(data: pd.DataFrame, index: int, col: str, mi: float, scale: float):
@@ -132,7 +132,7 @@ def prepare_model_data(data: pd.DataFrame, label: str, col: str, is_train: bool)
     X, x_meta, y, scaler_mins, scaler_scales = [], [], [], [], []
 
     # Define right boundary for regression based signals
-    if label == 'price':
+    if not train or label == 'price':
         right_offset = 0
     elif label == 'signal':
         right_offset = fwl
@@ -151,13 +151,14 @@ def prepare_model_data(data: pd.DataFrame, label: str, col: str, is_train: bool)
         sequence = local_data.iloc[i:i+wl]
 
         mi = mins.iloc[i+wl-1]
-        scale = 1 / (maxes.iloc[i+wl-1] - mi)
+        scale = 1 / (maxes.iloc[i+wl-1])
 
         # Get columns we don't want to translate (crosses, MACD)
         no_translate_cols = [col for col in sequence.columns if 'Cross' in col] + ['MACD']
 
-        # Normalize by translation and scaling (moving averages)
-        sequence_1 = (sequence.drop(columns=keep_cols + no_translate_cols) - mi) * scale
+        # Normalize by just scaling (moving averages)
+        # Removed translating by mi for now...
+        sequence_1 = sequence.drop(columns=keep_cols + no_translate_cols) * scale
 
         # Normalize by just scaling (divergence)
         sequence_2 = sequence[no_translate_cols] * scale
@@ -179,8 +180,10 @@ def prepare_model_data(data: pd.DataFrame, label: str, col: str, is_train: bool)
 
         x_meta.append(sector_vector)
 
-        gt_label = labeller(i, mi, scale)
-        y.append(gt_label)
+        # Add the gt label IF in bounds
+        if i + wl + fwl <= len(local_data):
+            gt_label = labeller(i, mi, scale)
+            y.append(gt_label)
 
         scaler_mins.append(mi)
         scaler_scales.append(scale)

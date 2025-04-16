@@ -257,7 +257,7 @@ def ticker_class_model_eval(model_path: str, model_arch: str, ticker: str):
     gt_sell_mask = y_gt == 0
     buy_mask = y_actions == 2
     sell_mask = y_actions == 0
-    prices = data['Close'].iloc[WINDOW_LENGTH:]
+    prices = data['Close']
 
     # Plot ground truth prices
     fig, (ax1, ax2) = plt.subplots(1, 2, sharey=True, figsize=(18, 8))
@@ -265,8 +265,8 @@ def ticker_class_model_eval(model_path: str, model_arch: str, ticker: str):
     ax2.plot(time_col, prices, "k", label="Close")
 
     # Plot buy/sell signals
-    time_col = time_col.iloc[:-FUTURE_WINDOW_LENGTH]
-    prices = prices.iloc[:-FUTURE_WINDOW_LENGTH]
+    time_col = time_col.iloc[WINDOW_LENGTH:-FUTURE_WINDOW_LENGTH]
+    prices = prices.iloc[WINDOW_LENGTH:-FUTURE_WINDOW_LENGTH]
 
     ax1.scatter(time_col[gt_buy_mask], prices[gt_buy_mask],
                 s=50, c='g', label="Ground Truth Buy")
