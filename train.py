@@ -46,7 +46,7 @@ def prepare_training_data(label: str):
         data = tickers_df_grouped.get_group((ticker,))
 
         # Just use the ticker's whole file data as a contiguous training set
-        ticker_X, ticker_x_meta, ticker_y, mins, scales = prepare_model_data(data, label, 'Close', True)
+        ticker_X, ticker_x_meta, ticker_y, scales = prepare_model_data(data, label, 'Close', True)
 
         X.append(ticker_X)
         x_meta.append(ticker_x_meta)
@@ -106,8 +106,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description="Train a Model"
     )
-    parser.add_argument('-m', '--model', type=str, help='model type/architecture to use',
-                        choices=['transformer'], required=True)
     parser.add_argument('-d', '--train_data', type=str, help='if set, path to file containing X and y sequence data')
     parser.add_argument('-l', '--label', type=str, help='labels to use for each instance',
                         choices=['price', 'signal'], required=True)
@@ -121,6 +119,8 @@ if __name__ == '__main__':
                         help='learning rate (defaults to 0.001)')
     parser.add_argument('-p', '--epochs', type=int,
                         help='number of training epochs for the NN models (defaults to 20)')
+    parser.add_argument('-t', '--tag', type=str,
+                        help='if set, tag to save the model file as (do not include "models/" path or "_model.keras" suffix')
     args = parser.parse_args()
 
     # Prepare training data
@@ -143,13 +143,14 @@ if __name__ == '__main__':
         model = get_transformer_model(X[0].shape, x_meta[0].shape, args.label)
 
         # Compile
+        lr = args.learning_rate if args.learning_rate is not None else 0.001
         if args.label == 'price':
-            model.compile(optimizer='adam', loss=args.error)
+            model.compile(optimizer=Adam(learning_rate=lr), 
+                          loss=args.error)
         elif args.label == 'signal':
-            model.compile(
-                optimizer=Adam(learning_rate=(args.learning_rate if args.learning_rate is not None else 0.001)),
-                loss=custom_categorical_crossentropy, 
-                metrics=[F1Score()])
+            model.compile(optimizer=Adam(learning_rate=lr),
+                          loss=custom_categorical_crossentropy,
+                          metrics=[F1Score()])
     
     model.summary()
     
@@ -166,13 +167,16 @@ if __name__ == '__main__':
               callbacks=[lr_scheduler])
     
     # Save the model
-    if args.label == 'price':
-        loss_func_str = args.error
-    elif args.label == 'signal':
-        loss_func_str = 'cce'
+    if args.tag is not None:
+        model.save(f'./models/{VERSION}/{args.tag}_model.keras')
+    else:
+        if args.label == 'price':
+            loss_func_str = args.error
+        elif args.label == 'signal':
+            loss_func_str = 'cce'
 
-    tag = './models/{}/{}_close-{}_{}'.format(
-        VERSION, args.model, args.label, loss_func_str
-    )
+        tag = './models/{}/transformer_close-{}_{}'.format(
+            VERSION, args.label, loss_func_str
+        )
 
-    model.save(f'{tag}_model.keras')
+        model.save(f'{tag}_model.keras')

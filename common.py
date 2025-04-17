@@ -38,7 +38,7 @@ percent_change_slope = 0.05
 train_stride = 15
 
 
-def buy_sell_label(data: pd.DataFrame, index: int, col: str, mi: float, scale: float):
+def buy_sell_label(data: pd.DataFrame, index: int, col: str, scale: float):
     """
     Create buy/sell/do nothing labels from the given data.
 
@@ -46,7 +46,6 @@ def buy_sell_label(data: pd.DataFrame, index: int, col: str, mi: float, scale: f
         data (pandas.DataFrame): Pandas DataFrame containing (unscaled) data.
         index (int): Index of the starting index of the input sequence.
         col (str): Name of the column for the prices to use.
-        mi (float): Minimum value to be used in normalization.
         scale (float): Scale value to be used in normalization.
 
     Returns:
@@ -122,23 +121,22 @@ def prepare_model_data(data: pd.DataFrame, label: str, col: str, is_train: bool)
 
     # Define the label function based on the label
     if label == 'price':
-        def labeller(i, mi, scale):
-            return (local_data.iloc[i+wl][col] - mi) * scale
+        def labeller(i, scale):
+            return local_data.iloc[i+wl][col] * scale
     elif label == 'signal':
-        def labeller(i, mi, scale):
-            return buy_sell_label(local_data, i, col, mi, scale)
+        def labeller(i, scale):
+            return buy_sell_label(local_data, i, col, scale)
 
     # Init sequences, metadata, labels, and scaler values
-    X, x_meta, y, scaler_mins, scaler_scales = [], [], [], [], []
+    X, x_meta, y, scaler_scales = [], [], [], []
 
     # Define right boundary for regression based signals
-    if not train or label == 'price':
+    if (not is_train) or (label == 'price'):
         right_offset = 0
     elif label == 'signal':
         right_offset = fwl
 
     # Rolling mins/maxes for normalization
-    mins = local_data[col].rolling(wl).min()
     maxes = local_data[col].rolling(wl).max()
     
     # Stride
@@ -150,31 +148,23 @@ def prepare_model_data(data: pd.DataFrame, label: str, col: str, is_train: bool)
     for i in range(0, len(data) - wl - right_offset, stride):
         sequence = local_data.iloc[i:i+wl]
 
-        mi = mins.iloc[i+wl-1]
         scale = 1 / (maxes.iloc[i+wl-1])
 
-        # Get columns we don't want to translate (crosses, MACD)
-        no_translate_cols = [col for col in sequence.columns if 'Cross' in col] + ['MACD']
-
-        # Normalize by just scaling (moving averages)
-        # Removed translating by mi for now...
-        sequence_1 = sequence.drop(columns=keep_cols + no_translate_cols) * scale
-
-        # Normalize by just scaling (divergence)
-        sequence_2 = sequence[no_translate_cols] * scale
+        # Normalize by scaling
+        sequence_1 = sequence.drop(columns=keep_cols) * scale
 
         # Custom normalization and handling
-        sequence_3 = sequence[keep_cols]
+        sequence_2 = sequence[keep_cols]
         # Scale volume by max
-        sequence_3['Volume'] /= sequence_3['Volume'].max()
+        sequence_2['Volume'] /= sequence_2['Volume'].max()
         # Sigmoid PE
-        sequence_3['PE'] = 1/(1 + np.exp(sequence_3['PE']/100))
+        sequence_2['PE'] = 1/(1 + np.exp(sequence_2['PE']/100))
         # Get the sector vector
-        sector_id = sequence_3['Sector_ID'].iloc[0]
+        sector_id = sequence_2['Sector_ID'].iloc[0]
         sector_vector = sec_to_vec[sector_id]
-        sequence_3.drop(columns=['Sector_ID'], inplace=True)
+        sequence_2.drop(columns=['Sector_ID'], inplace=True)
 
-        sequence = pd.concat([sequence_1, sequence_2, sequence_3], axis=1).to_numpy()
+        sequence = pd.concat([sequence_1, sequence_2], axis=1).to_numpy()
 
         X.append(sequence)
 
@@ -182,16 +172,14 @@ def prepare_model_data(data: pd.DataFrame, label: str, col: str, is_train: bool)
 
         # Add the gt label IF in bounds
         if i + wl + fwl <= len(local_data):
-            gt_label = labeller(i, mi, scale)
+            gt_label = labeller(i, scale)
             y.append(gt_label)
 
-        scaler_mins.append(mi)
         scaler_scales.append(scale)
 
     X = np.array(X)
     x_meta = np.array(x_meta)
     y = np.array(y)
-    scaler_mins = np.array(scaler_mins)
     scaler_scales = np.array(scaler_scales)
 
-    return X, x_meta, y, scaler_mins, scaler_scales
+    return X, x_meta, y, scaler_scales
