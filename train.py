@@ -148,7 +148,7 @@ if __name__ == '__main__':
             model.compile(optimizer=Adam(learning_rate=lr), 
                           loss=args.error)
         elif args.label == 'signal':
-            model.compile(optimizer=Adam(learning_rate=lr),
+            model.compile(optimizer=Adam(learning_rate=lr, clipnorm=1.0),
                           loss=custom_categorical_crossentropy,
                           metrics=[F1Score()])
     
@@ -159,7 +159,7 @@ if __name__ == '__main__':
     # Noise augmentation
     train_data_generator = NoiseAugmentator(X_train, x_meta_train, y_train, 
                                             batch_size=(args.batch_size if args.batch_size is not None else 64),
-                                            aug_factor=10,
+                                            aug_factor=15,
                                             std_scaler=0.5)
     model.fit(train_data_generator,
               epochs=(args.epochs if args.epochs is not None else 20), 
