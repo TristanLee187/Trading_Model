@@ -270,7 +270,7 @@ def ticker_class_model_eval(model_tag: str, ticker: str):
 
     ax2.scatter(time_col[:num_pred][buy_mask], prices[:num_pred][buy_mask], s=40,
                 c='lime', alpha=1, label="Predicted Buy")
-    ax2.scatter(time_col[sell_mask], prices[:num_pred][sell_mask],
+    ax2.scatter(time_col[:num_pred][sell_mask], prices[:num_pred][sell_mask],
                 s=40, c='red', alpha=1, label="Predicted Sell")
     ax2.legend()
 

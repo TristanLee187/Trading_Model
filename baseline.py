@@ -4,26 +4,24 @@ from common import *
 import pandas as pd
 import numpy as np
 from datetime import date
-from build_data_set import build_daily_dataset
 import argparse
 
 
 np.random.seed(42)
 
 
-def build_eval_data(ticker: str, start_date: date, end_date: date = None):
+def build_eval_data(ticker: str):
     """
-    Prepare data needed for evaluation.
+    Prepare data needed for evaluation by reading from disk.
 
     Args:
         ticker (str): String with the ticker to evaluate the model on.
-        start_date (datetime.date): Date for the first date of the time window for the evaluation.
-        end_date (datetime.date): Date for the last date of the time window for the evaluation.
 
     Returns:
         pandas.DataFrame, pandas.Series: Market data, and a time column to use for plotting.
     """
-    data = build_daily_dataset(ticker, start_date, end_date)
+    data = pd.read_csv('daily_market_data/all_tickers_eval.csv')
+    data = data[data['Ticker'] == ticker]
     time_col = pd.to_datetime(data[['Year', 'Month', 'Day']]).dt.date
 
     return data, time_col
@@ -126,7 +124,7 @@ def swing_strategy(data: pd.DataFrame):
     return predictions
 
 
-def all_tickers_baseline_eval(strategy: str, start_date: date, end_date: date):
+def all_tickers_baseline_eval(strategy: str):
     """
     Evaluate a given strategy for all tickers on a given time range.
 
@@ -135,8 +133,6 @@ def all_tickers_baseline_eval(strategy: str, start_date: date, end_date: date):
             - buy_and_hold: buy once at the beginning, hold until the end.
             - buy: buy every day.
             - random: random action every day.
-        start_date (datetime.date): First date of the time window for the evaluation.
-        end_date (datetime.date): Last date of the time window for the evaluation.
 
     Returns:
         None
@@ -165,7 +161,9 @@ def all_tickers_baseline_eval(strategy: str, start_date: date, end_date: date):
 
     for ticker in tickers:
         # Get data from Yahoo Finance and (on disk) quarterly earnings
-        data, time_col = build_eval_data(ticker, start_date, end_date)
+        data, time_col = build_eval_data(ticker)
+        # Python scoping is weird...
+        start_date, end_date = time_col.iloc[0], time_col.iloc[-1]
         prices = np.array(data['Close'])
         # Normalize by the first day's price
         prices /= prices[0]
@@ -199,7 +197,7 @@ def all_tickers_baseline_eval(strategy: str, start_date: date, end_date: date):
 
     # Record the total profit and return
     total_profit = total_revenue - total_cost
-    profit_string = f'{sign_blank_or_negative(total_profit)}${round(total_profit, 2)} total profit from ${round(total_cost, 2)} total cost'
+    profit_string = f'{sign_blank_or_negative(total_profit)}${abs(round(total_profit, 2))} total profit from ${round(total_cost, 2)} total cost'
     return_string = f'Total return for all tickers: {round(100*total_profit/total_cost, 2)}%'
     print(profit_string)
     print(return_string)
@@ -221,8 +219,7 @@ if __name__ == '__main__':
     )
     parser.add_argument('-s', '--strategy', type=str,
                         choices=['buy_and_hold', 'buy', 'random', 'momentum', 'swing'],
-                        help='strategy to test for all tickers on all of 2024', required=True)
+                        help='strategy to test for all tickers on the evaluation data', required=True)
     args = parser.parse_args()
 
-    start, end = date(2024, 1, 1), date(2024, 12, 31)
-    all_tickers_baseline_eval(args.strategy, start, end)
+    all_tickers_baseline_eval(args.strategy)
