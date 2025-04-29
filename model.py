@@ -115,6 +115,75 @@ class MoETopKLayer(Layer):
         weighted_expert_outputs = tf.reduce_sum(expert_outputs * gated_outputs, axis=-1)
 
         return weighted_expert_outputs
+    
+
+# Transformer block with LSTM positional encoding and MoE
+class TransformerBlock(Layer):
+    def __init__(self, num_heads, key_dim, ff_dim_1, ff_dim_2, **kwargs):
+        super(TransformerBlock, self).__init__(**kwargs)
+        self.num_heads = num_heads
+        self.key_dim = key_dim
+        self.ff_dim_1 = ff_dim_1
+        self.ff_dim_2 = ff_dim_2
+
+        self.position_encoder = None
+        self.attn_layer = None
+        self.mixture_of_experts = None
+
+    def build(self, input_shape):
+        # LSTM position encoding
+        self.position_encoder = LSTM(units=input_shape[2], return_sequences=True,
+                                     kernel_regularizer=l2(REG_FACTOR),
+                                     recurrent_regularizer=l2(REG_FACTOR), 
+                                     bias_regularizer=l2(REG_FACTOR))
+        # Multi-head attention
+        self.attn_layer = MultiHeadAttention(num_heads=self.num_heads, key_dim=self.key_dim, 
+                                             dropout=DROPOUT_FACTOR, 
+                                             kernel_regularizer=l2(REG_FACTOR), 
+                                             bias_regularizer=l2(REG_FACTOR))
+        # Mixture of experts
+        self.mixture_of_experts = MoETopKLayer(num_experts=5, dim_1=self.ff_dim_1, dim_2=self.ff_dim_2, top_k=2)
+    
+    def call(self, inputs):
+        # Encode positions
+        positions = self.position_encoder(inputs)
+        x = Add()([inputs, positions])
+
+        # Attention!
+        attention = self.attn_layer(x, x)
+        x = Add()([x, attention])
+        x = LayerNormalization(epsilon=1e-8)(x)
+
+        # Mixture of experts
+        moe = self.mixture_of_experts(x)
+        x = Add()([x, moe])
+        x = LayerNormalization(epsilon=1e-8)(x)
+        
+        return x
+
+
+# Functional version of the above class to generate pictures of the transformer block
+def transformer_block(shape, num_heads, key_dim, ff_dim_1, ff_dim_2):
+    input_layer = Input(shape=shape)
+    x = input_layer
+    # Positional encoding
+    position_encoder = LSTM(units=x.shape[2], return_sequences=True, 
+                            kernel_regularizer=l2(REG_FACTOR), recurrent_regularizer=l2(REG_FACTOR), bias_regularizer=l2(REG_FACTOR))(x)
+    x = Add()([x, position_encoder])
+    
+    # Attention!
+    attn_layer = MultiHeadAttention(num_heads=num_heads, key_dim=key_dim, dropout=DROPOUT_FACTOR, 
+                                    kernel_regularizer=l2(REG_FACTOR), bias_regularizer=l2(REG_FACTOR))(x, x)
+    x = Add()([x, attn_layer])
+    x = LayerNormalization(epsilon=1e-8)(x)
+    
+    # MoE
+    moe = MoETopKLayer(num_experts=5, dim_1=ff_dim_1, dim_2=ff_dim_2, top_k=2)(x)
+    x = Add()([x, moe])
+    x = LayerNormalization(epsilon=1e-8)(x)
+
+    model = Model(inputs=input_layer, outputs=x)
+    return model
 
 
 def last_layer(label: str):
@@ -133,7 +202,7 @@ def last_layer(label: str):
         return Dense(units=1)
     elif label == 'signal':
         return Dense(units=3, activation='softmax')
-
+    
 
 def get_transformer_model(shape: tuple, meta_dim: int, label: str):
     """
@@ -147,30 +216,11 @@ def get_transformer_model(shape: tuple, meta_dim: int, label: str):
     Returns:
         keras.Model: Model with a transformer-MoE architecture.
     """
-    # Transformer block with learnable position encoding and MoE
-    def transformer_block(x, num_heads, key_dim, ff_dim_1, ff_dim_2):
-        # Positional encoding
-        position_encoder = LSTM(units=x.shape[2], return_sequences=True, 
-                                kernel_regularizer=l2(REG_FACTOR), recurrent_regularizer=l2(REG_FACTOR), bias_regularizer=l2(REG_FACTOR))(x)
-        x = Add()([x, position_encoder])
-        
-        # Attention!
-        attn_layer = MultiHeadAttention(num_heads=num_heads, key_dim=key_dim, dropout=DROPOUT_FACTOR, 
-                                        kernel_regularizer=l2(REG_FACTOR), bias_regularizer=l2(REG_FACTOR))(x, x)
-        x = Add()([x, attn_layer])
-        x = LayerNormalization(epsilon=1e-8)(x)
-        
-        # MoE
-        moe = MoETopKLayer(num_experts=5, dim_1=ff_dim_1, dim_2=ff_dim_2, top_k=2)(x)
-        x = Add()([x, moe])
-        x = LayerNormalization(epsilon=1e-8)(x)
-        return x
-
     # Stack of Transformer blocks
     def transformer_stack(x, num_heads, key_dim, ff_dim_1, ff_dim_2, num_blocks):
         for _ in range(num_blocks):
-            x = transformer_block(x, num_heads=num_heads, key_dim=key_dim, 
-                                  ff_dim_1=ff_dim_1, ff_dim_2=ff_dim_2)
+            x = TransformerBlock(num_heads=num_heads, key_dim=key_dim, 
+                                 ff_dim_1=ff_dim_1, ff_dim_2=ff_dim_2)(x)
         return x
 
     # Define the inputs
@@ -205,5 +255,6 @@ CUSTOM_OBJECTS = {
     'custom_categorical_crossentropy': custom_categorical_crossentropy,
     'Expert': Expert,
     'MoETopKLayer': MoETopKLayer,
-    'AttentionPooling': AttentionPooling
+    'AttentionPooling': AttentionPooling,
+    'TransformerBlock': TransformerBlock
 }

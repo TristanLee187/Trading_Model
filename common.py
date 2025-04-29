@@ -23,7 +23,7 @@ tickers = sp_100_tickers
 sec_to_vec = np.eye(11)
 
 # Version folder to save models and plots to.
-VERSION = 'v9'
+VERSION = 'final'
 
 # Number of time points to use in defining sequence data.
 WINDOW_LENGTH = 30
