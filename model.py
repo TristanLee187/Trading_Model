@@ -130,6 +130,12 @@ class TransformerBlock(Layer):
         self.attn_layer = None
         self.mixture_of_experts = None
 
+        self.add_1 = None
+        self.add_2 = None
+        self.add_3 = None
+        self.layernorm_1 = None
+        self.layernorm_2 = None
+
     def build(self, input_shape):
         # LSTM position encoding
         self.position_encoder = LSTM(units=input_shape[2], return_sequences=True,
@@ -143,21 +149,28 @@ class TransformerBlock(Layer):
                                              bias_regularizer=l2(REG_FACTOR))
         # Mixture of experts
         self.mixture_of_experts = MoETopKLayer(num_experts=5, dim_1=self.ff_dim_1, dim_2=self.ff_dim_2, top_k=2)
+
+        # Misc
+        self.add_1 = Add()
+        self.add_2 = Add()
+        self.add_3 = Add()
+        self.layernorm_1 = LayerNormalization(epsilon=1-8)
+        self.layernorm_2 = LayerNormalization(epsilon=1-8)
     
     def call(self, inputs):
         # Encode positions
         positions = self.position_encoder(inputs)
-        x = Add()([inputs, positions])
+        x = self.add_1([inputs, positions])
 
         # Attention!
         attention = self.attn_layer(x, x)
-        x = Add()([x, attention])
-        x = LayerNormalization(epsilon=1e-8)(x)
+        x = self.add_2([x, attention])
+        x = self.layernorm_1(x)
 
         # Mixture of experts
         moe = self.mixture_of_experts(x)
-        x = Add()([x, moe])
-        x = LayerNormalization(epsilon=1e-8)(x)
+        x = self.add_3([x, moe])
+        x = self.layernorm_2(x)
         
         return x
 
