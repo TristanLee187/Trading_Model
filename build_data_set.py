@@ -190,7 +190,7 @@ if __name__ == '__main__':
     elif args.dataset == 'eval':
         # All of 2024 plus some of 2025
         s = date(2024, 1, 1)
-        e = date(2025, 4, 26)
+        e = date(2025, 1, 1)
 
     tickers_df = build_daily_dataset_full(s, e)
     tickers_df = add_sector_prop_change(tickers_df)
