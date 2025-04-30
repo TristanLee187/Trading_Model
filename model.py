@@ -154,8 +154,8 @@ class TransformerBlock(Layer):
         self.add_1 = Add()
         self.add_2 = Add()
         self.add_3 = Add()
-        self.layernorm_1 = LayerNormalization(epsilon=1-8)
-        self.layernorm_2 = LayerNormalization(epsilon=1-8)
+        self.layernorm_1 = LayerNormalization(epsilon=1e-8)
+        self.layernorm_2 = LayerNormalization(epsilon=1e-8)
     
     def call(self, inputs):
         # Encode positions

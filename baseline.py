@@ -205,7 +205,7 @@ def all_tickers_baseline_eval(strategy: str):
 
     # Export to a text file
     date_string = str(start_date) + '_' + str(end_date)
-    file_name = './plots/{}/baseline_{}_{}_performance.txt'.format(
+    file_name = './plots/{}/baselines/baseline_{}_{}_performance.txt'.format(
         VERSION, strategy, date_string
     )
     with open(file_name, 'w') as file:

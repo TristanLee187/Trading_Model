@@ -227,7 +227,7 @@ def all_tickers_class_model_eval(model_tag: str):
 
     # Export to a text file
     date_string = str(start_date) + '_' + str(end_date)
-    file_name = './plots/{}/{}_{}_buy_sell_performance.txt'.format(
+    file_name = './plots/{}/model_performance/{}_{}_buy_sell_performance.txt'.format(
         VERSION, model_tag, date_string
     )
     with open(file_name, 'w') as file:
@@ -235,7 +235,7 @@ def all_tickers_class_model_eval(model_tag: str):
         file.close()
     
     # Same for ground truth
-    file_name = './plots/{}/ground_truth_{}_buy_sell_performance.txt'.format(
+    file_name = './plots/{}/model_performance/ground_truth_{}_buy_sell_performance.txt'.format(
         VERSION, date_string
     )
     with open(file_name, 'w') as file:
@@ -311,7 +311,7 @@ def ticker_class_model_eval(model_tag: str, ticker: str):
     # Save the plot
     date_string = str(start_date) + '_' + str(end_date)
 
-    plot_name = './plots/{}/{}_{}_{}_close-signal.jpeg'.format(
+    plot_name = './plots/{}/model_plots/{}_{}_{}_close-signal.jpeg'.format(
         VERSION, model_tag, ticker, date_string
     )
 
