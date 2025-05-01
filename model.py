@@ -177,7 +177,7 @@ class TransformerBlock(Layer):
 
 # Functional version of the above class to generate pictures of the transformer block
 def transformer_block(shape, num_heads, key_dim, ff_dim_1, ff_dim_2):
-    input_layer = Input(shape=shape)
+    input_layer = Input(shape=shape, name='input_sequence')
     x = input_layer
     # Positional encoding
     position_encoder = LSTM(units=x.shape[2], return_sequences=True, 
@@ -193,7 +193,7 @@ def transformer_block(shape, num_heads, key_dim, ff_dim_1, ff_dim_2):
     # MoE
     moe = MoETopKLayer(num_experts=5, dim_1=ff_dim_1, dim_2=ff_dim_2, top_k=2)(x)
     x = Add()([x, moe])
-    x = LayerNormalization(epsilon=1e-8)(x)
+    x = LayerNormalization(epsilon=1e-8, name='output_sequence')(x)
 
     model = Model(inputs=input_layer, outputs=x)
     return model
@@ -214,16 +214,16 @@ def last_layer(label: str):
     if label == 'price':
         return Dense(units=1)
     elif label == 'signal':
-        return Dense(units=3, activation='softmax')
+        return Dense(units=3, activation='softmax', name='y')
     
 
-def get_transformer_model(shape: tuple, meta_dim: int, label: str):
+def get_transformer_model(shape: tuple, meta_dim: tuple, label: str):
     """
     Define a transformer (with learnable positional encoding) and MoE based architecture.
 
     Args:
         shape (tuple[int, int]): shape of each input sequence.
-        meta_dim (int): Dimension of the metadata vector.
+        meta_dim (tuple): 1 element tuple containing the dimension of the metadata vector.
         label (str):  The label type to train on.
 
     Returns:
@@ -237,8 +237,8 @@ def get_transformer_model(shape: tuple, meta_dim: int, label: str):
         return x
 
     # Define the inputs
-    seq_input_layer = Input(shape=shape)
-    meta_input_layer = Input(shape=meta_dim)
+    seq_input_layer = Input(shape=shape, name='x_seq')
+    meta_input_layer = Input(shape=meta_dim, name='x_meta')
 
     # Transformer blocks
     temporal_stack = transformer_stack(seq_input_layer, num_heads=2, key_dim=8,
@@ -271,3 +271,13 @@ CUSTOM_OBJECTS = {
     'AttentionPooling': AttentionPooling,
     'TransformerBlock': TransformerBlock
 }
+
+
+if __name__ == '__main__':
+    # Save both the transformer block and full model as empty architectures
+    # (for Nitron to make a nice picture)
+    t_block = transformer_block((30, 22), 2, 8, 22, 22)
+    t_block.save(f'./models/{VERSION}/transformer_block.keras')
+
+    model = get_transformer_model((30, 22), (11,), 'signal')
+    model.save(f'./models/{VERSION}/full_arch.keras')

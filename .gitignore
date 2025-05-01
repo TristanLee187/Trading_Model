@@ -165,7 +165,7 @@ cython_debug/
 .vscode
 
 # My market data
-daily_market_data/
+daily_market_data/all*
 
 # Models
 models/

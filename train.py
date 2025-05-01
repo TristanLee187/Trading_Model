@@ -107,8 +107,6 @@ if __name__ == '__main__':
         description="Train a Model"
     )
     parser.add_argument('-d', '--train_data', type=str, help='if set, path to file containing X and y sequence data')
-    parser.add_argument('-l', '--label', type=str, help='labels to use for each instance',
-                        choices=['price', 'signal'], required=True)
     parser.add_argument('-e', '--error', type=str,
                         help='error (loss) function to use (required for regression, ignored if classification)')
     parser.add_argument('-r', '--resume', type=str,
@@ -120,7 +118,7 @@ if __name__ == '__main__':
     parser.add_argument('-p', '--epochs', type=int,
                         help='number of training epochs for the NN models (defaults to 20)')
     parser.add_argument('-t', '--tag', type=str,
-                        help='if set, tag to save the model file as (do not include "models/" path or "_model.keras" suffix')
+                        help='if set, tag to save the model file as (do not include "models/" path or "_model.keras" suffix)')
     args = parser.parse_args()
 
     # Prepare training data
@@ -128,8 +126,8 @@ if __name__ == '__main__':
         npzfile = np.load(args.train_data)
         X, x_meta, y = npzfile['X'], npzfile['x_meta'], npzfile['y']
     else:
-        X, x_meta, y = prepare_training_data(args.label)
-        np.savez(f'./models/{VERSION}/{args.label}_{train_stride}_stride_X_x_meta_and_y.npz', X=X, x_meta=x_meta, y=y)
+        X, x_meta, y = prepare_training_data('signal')
+        np.savez(f'./models/{VERSION}/signal_{train_stride}_stride_X_x_meta_and_y.npz', X=X, x_meta=x_meta, y=y)
 
     # Prepare validation data
     X_train, X_val, x_meta_train, x_meta_val, y_train, y_val = train_test_split(
@@ -140,17 +138,13 @@ if __name__ == '__main__':
         with custom_object_scope(CUSTOM_OBJECTS):
             model = load_model(args.resume, compile=True)
     else:
-        model = get_transformer_model(X[0].shape, x_meta[0].shape, args.label)
+        model = get_transformer_model(X[0].shape, x_meta[0].shape, 'signal')
 
         # Compile
         lr = args.learning_rate if args.learning_rate is not None else 0.001
-        if args.label == 'price':
-            model.compile(optimizer=Adam(learning_rate=lr), 
-                          loss=args.error)
-        elif args.label == 'signal':
-            model.compile(optimizer=Adam(learning_rate=lr, clipnorm=1.0),
-                          loss=custom_categorical_crossentropy,
-                          metrics=[F1Score()])
+        model.compile(optimizer=Adam(learning_rate=lr, clipnorm=1.0),
+                        loss=custom_categorical_crossentropy,
+                        metrics=[F1Score()])
     
     model.summary()
     
@@ -170,13 +164,8 @@ if __name__ == '__main__':
     if args.tag is not None:
         model.save(f'./models/{VERSION}/{args.tag}_model.keras')
     else:
-        if args.label == 'price':
-            loss_func_str = args.error
-        elif args.label == 'signal':
-            loss_func_str = 'cce'
-
-        tag = './models/{}/transformer_close-{}_{}'.format(
-            VERSION, args.label, loss_func_str
+        tag = './models/{}/transformer_close-{}'.format(
+            VERSION, 'signal'
         )
 
         model.save(f'{tag}_model.keras')
