@@ -15,6 +15,8 @@ Typical usage of the pipeline should go as follows:
 - Run `train.py` to train a model depending on. I chose to use a transformer and LSTM based architecture since they focus on sequence data, appropriate for time series, along with mixture of experts in the transformer blocks. The generated model will be saved to `./models/VERSION/`, where `VERSION` is set in the `common.py` file. My final trained models can be found `deploy_dir`.
 - Run `evaluate.py` to evaluate the trained model on the test data produced by `build_data_set.py`. Produce plots for specific tickers to evaluate with the human eye, and simulate a simple strategy using the signals across all tickers to evaluate the average profit/loss. These outputs will be saved to `./plots/VERSON/`. I've included my own output across the preliminary and final versions.
 
+You can also use `baseline.py` to execute various simple baseline strategies.
+
 Each of these files use `argparse` to be run from the command line with arguments, so you can use `-h` to see exaclty how to run each file. For example:
 
 ```console
